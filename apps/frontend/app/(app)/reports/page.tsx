@@ -9,6 +9,7 @@ import { RecruitmentFunnel } from "@/components/reports/recruitment-funnel";
 import { FUNNEL_BASE_COLORS } from "@/constants/reports.constants";
 import { ReportsLineChart } from "@/features/reports/ReportsLineChart";
 import { ExportReportDialog } from "@/features/reports/ExportReportDialog";
+import { ApplicationsBySource } from "@/features/reports/ApplicationsBySource";
 import { Role } from "@/constants/enums";
 import { useReports } from "@/hooks/useReports";
 import type { FunnelStage } from "@/lib/types";
@@ -64,7 +65,7 @@ function ReportsInner() {
       name: s.stage,
       value: s.value,
       conv: s.conv,
-      color: FUNNEL_BASE_COLORS[i] ?? "#4F6EF7",
+      color: FUNNEL_BASE_COLORS[i] ?? FUNNEL_BASE_COLORS[0],
     })
   );
 
@@ -178,7 +179,7 @@ function ReportsInner() {
                               height: `${pct}%`,
                               minHeight: "4px",
                               borderRadius: "4px 4px 0 0",
-                              backgroundColor: "#19C38C",
+                              backgroundColor: "var(--color-chart-1)",
                               transition: "opacity 0.15s",
                             }}
                             title={`${d.department}: ${d.count}`}
@@ -203,6 +204,13 @@ function ReportsInner() {
             </div>
           )}
         </div>
+
+        {/* ── Applications by source ─────────────────────────────────────────── */}
+        <ApplicationsBySource
+          rows={data?.applicationsBySource ?? []}
+          loading={isLoading}
+          scope={isManager ? user.department ?? "Department" : "Org-wide"}
+        />
 
         {/* ── Recruitment funnel ────────────────────────────────────────────── */}
         <div className="surface-card p-5">

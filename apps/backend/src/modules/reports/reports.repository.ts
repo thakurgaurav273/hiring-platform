@@ -84,9 +84,10 @@ const getApplicationsOverTime = async (where?: Prisma.ApplicationWhereInput) => 
  * Applications grouped by department (admin-only chart).
  * Returns an array of { department: string, count: number }
  */
-const getApplicationsPerDepartment = async () => {
+const getApplicationsPerDepartment = async (where?: Prisma.ApplicationWhereInput) => {
     const results = await prisma.application.groupBy({
         by: ["jobId"],
+        where,
         _count: { id: true },
     });
 
@@ -166,6 +167,46 @@ const getFunnelStages = async (where?: Prisma.ApplicationWhereInput) => {
     return results;
 };
 
+/**
+ * Applications per source, with how many reached an interview and how many
+ * were hired. "Reached an interview" = has an interview scheduled, or is (or
+ * was) in an interview stage or later.
+ */
+const INTERVIEW_OR_LATER = ["INTERVIEW_SCHEDULED", "INTERVIEW_COMPLETED", "TECHNICAL_ROUND", "HR_ROUND", "OFFER_SENT", "HIRED"] as const;
+
+const getSourceBreakdown = async (where?: Prisma.ApplicationWhereInput) => {
+    const scope = where ?? {};
+    const [all, interviewed, hired] = await Promise.all([
+        prisma.application.groupBy({ by: ["sourceType"], where: scope, _count: { id: true } }),
+        prisma.application.groupBy({
+            by: ["sourceType"],
+            where: {
+                AND: [
+                    scope,
+                    {
+                        OR: [
+                            { interviews: { some: {} } },
+                            { currentStage: { in: [...INTERVIEW_OR_LATER] } },
+                            { history: { some: { toStage: { in: [...INTERVIEW_OR_LATER] } } } },
+                        ],
+                    },
+                ],
+            },
+            _count: { id: true },
+        }),
+        prisma.application.groupBy({ by: ["sourceType"], where: { AND: [scope, { currentStage: "HIRED" }] }, _count: { id: true } }),
+    ]);
+    const count = (rows: typeof all, type: string) => rows.find((r) => r.sourceType === type)?._count.id ?? 0;
+    return all
+        .map((r) => ({
+            sourceType: r.sourceType,
+            applications: r._count.id,
+            interviewed: count(interviewed, r.sourceType),
+            hired: count(hired, r.sourceType),
+        }))
+        .sort((a, b) => b.applications - a.applications);
+};
+
 export default {
     countApplications,
     countScheduledInterviews,
@@ -175,4 +216,5 @@ export default {
     getApplicationsOverTime,
     getApplicationsPerDepartment,
     getFunnelStages,
+    getSourceBreakdown,
 };

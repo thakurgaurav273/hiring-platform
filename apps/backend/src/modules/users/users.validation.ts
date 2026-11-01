@@ -32,6 +32,15 @@ export const updateMeSchema = z.object({
         phone: z.string().optional(),
         address: z.string().optional(),
         avatarUrl: z.string().url().optional().nullable(),
+        // Per-user switches for in-app and push notifications. Missing = on.
+        notificationPreferences: z
+            .object({
+                newApplications: z.boolean().optional(),
+                stageChanges: z.boolean().optional(),
+                interviewReminders: z.boolean().optional(),
+            })
+            .strict()
+            .optional(),
     }),
 });
 

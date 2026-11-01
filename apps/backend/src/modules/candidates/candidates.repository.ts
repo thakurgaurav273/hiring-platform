@@ -1,74 +1,9 @@
 import prisma from "../../database/prisma-client";
 import { Prisma, PipelineStage } from "@prisma/client";
 
-const createCandidateWithApplication = async (
-    candidateData: Omit<Prisma.CandidateCreateInput, "applications" | "notes">,
-    jobId: string,
-    stage?: PipelineStage,
-    whySuggest?: string,
-    authorId?: string
-) => {
-    return prisma.candidate.create({
-        data: {
-            ...candidateData,
-            applications: {
-                create: {
-                    jobId,
-                    currentStage: stage || "APPLIED",
-                },
-            },
-            notes: whySuggest && authorId ? {
-                create: {
-                    content: whySuggest,
-                    authorId,
-                }
-            } : undefined,
-        },
-        include: {
-            applications: {
-                include: {
-                    job: true,
-                },
-            },
-            notes: true,
-        },
-    });
-};
 
-const createApplication = async (
-    candidateId: string,
-    jobId: string,
-    stage?: PipelineStage
-) => {
-    return prisma.application.create({
-        data: {
-            candidateId,
-            jobId,
-            currentStage: stage || "APPLIED",
-        },
-        include: {
-            candidate: true,
-            job: true,
-        },
-    });
-};
 
-const findCandidateByEmail = async (email: string) => {
-    return prisma.candidate.findUnique({
-        where: { email },
-    });
-};
 
-const findApplication = async (candidateId: string, jobId: string) => {
-    return prisma.application.findUnique({
-        where: {
-            candidateId_jobId: {
-                candidateId,
-                jobId,
-            },
-        },
-    });
-};
 
 const findCandidateById = async (id: string) => {
     return prisma.candidate.findUnique({
@@ -180,10 +115,6 @@ const deleteCandidate = async (id: string) => {
 };
 
 const candidateRepository = {
-    createCandidateWithApplication,
-    createApplication,
-    findCandidateByEmail,
-    findApplication,
     findCandidateById,
     findAllApplications,
     countApplications,

@@ -87,7 +87,7 @@ function ProfileInner() {
         title="Your profile"
         actions={
           <div className="flex items-center gap-3">
-            <Link href="/settings/change-password" className="h-9 inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-[12.5px] font-medium hover:bg-secondary">
+            <Link href="/settings?tab=security" className="h-9 inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-[12.5px] font-medium hover:bg-secondary">
               <Lock className="h-3.5 w-3.5" /> Change Password
             </Link>
             {ui.editing ? (
@@ -149,7 +149,6 @@ function ProfileInner() {
         </>}
       </div>
 
-      <style>{`.input { height: 40px; width: 100%; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-surface); padding: 0 12px; font-size: 13px; outline: none; } .input:focus { border-color: var(--color-ring); }`}</style>
     </div>
   );
 }

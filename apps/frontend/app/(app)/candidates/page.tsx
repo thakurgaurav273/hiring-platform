@@ -1,14 +1,15 @@
 "use client";
 
 import { PageHeader } from "@/components/app-shell";
-import { useAppStore } from "@/store/app.store";
 import { Guard } from "@/components/access-restricted";
-import { Search, Filter, X } from "lucide-react";
+import { Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Skeleton } from "@/components/skeletons";
 import { CandidateRow } from "@/features/candidates/CandidateRow";
-import { CandidateFilters } from "@/features/candidates/CandidateFilters";
-import { Role } from "@/constants/enums";
+import { Filters, multi, useResolvedFilters, type FilterValues } from "@/components/filters";
+import { CANDIDATE_FILTERS } from "@/constants/filters.config";
+import { ListToolbar, SearchField } from "@/components/list-toolbar";
+import { ListPage, TableCard, TablePagination, usePageSize } from "@/components/data-table";
 import type { Stage } from "@/lib/types";
 import { useCandidates } from "@/hooks/useCandidates";
 import { useJobs } from "@/hooks/useJobs";
@@ -23,48 +24,35 @@ export default function CandidatesPage() {
 
 function CandidatesInner() {
   const { data: jobsData } = useJobs({ limit: 100 });
-  const visibleJobs = jobsData?.data?.jobs || [];
-  const role = useAppStore((s) => s.role);
+  const visibleJobs = useMemo(() => jobsData?.data?.jobs || [], [jobsData]);
 
-  const scopedJobIds = useMemo(() => new Set(visibleJobs.map((j) => j.id)), [visibleJobs]);
-  const departments = useMemo(() => Array.from(new Set(visibleJobs.map((j) => j.department).filter(Boolean))), [visibleJobs]);
 
+  const filterData = useMemo(() => ({ jobs: visibleJobs }), [visibleJobs]);
   const [ui, setUi] = useState({
     q: "",
-    stageF: [] as Stage[],
-    jobF: [] as string[],
-    deptF: [] as string[],
+    filters: {} as FilterValues,
     page: 1,
-    showFilters: false,
   });
-
-  const { q, stageF, jobF, deptF, page, showFilters } = ui;
-
+  const { q, page } = ui;
+  const { values: filters } = useResolvedFilters(CANDIDATE_FILTERS, filterData, ui.filters);
+  const hasFilters = Object.values(filters).some((v) => v?.length);
   const setQ = (v: string) => setUi((f) => ({ ...f, q: v, page: 1 }));
-  const setStageF = (v: Stage[]) => setUi((f) => ({ ...f, stageF: v, page: 1 }));
-  const setJobF = (v: string[]) => setUi((f) => ({ ...f, jobF: v, page: 1 }));
-  const setDeptF = (v: string[]) => setUi((f) => ({ ...f, deptF: v, page: 1 }));
-  const setPage = (fn: (p: number) => number) => setUi((f) => ({ ...f, page: fn(f.page) }));
-  const setShowFilters = (v: boolean) => setUi((f) => ({ ...f, showFilters: v }));
-
-  const filteredJobsForFilter = useMemo(() => {
-    if (deptF.length === 0) return visibleJobs;
-    return visibleJobs.filter((j) => deptF.includes(j.department));
-  }, [visibleJobs, deptF]);
+  const setFilters = (v: FilterValues) => setUi((f) => ({ ...f, filters: v, page: 1 }));
+  const setPage = (page: number) => setUi((f) => ({ ...f, page }));
+  const [pageSize, setPageSize] = usePageSize("candidates");
 
   // Fetch from backend
-  const { data, isLoading } = useCandidates({
+  const { data, isLoading, isFetching } = useCandidates({
     page,
-    limit: 20,
+    limit: pageSize,
     search: q || undefined,
-    department: deptF.length > 0 ? deptF : undefined,
-    stage: stageF.length > 0 ? stageF : undefined,
-    jobId: jobF.length > 0 ? jobF : undefined,
+    department: multi(filters, "department"),
+    stage: multi(filters, "stage") as Stage[] | undefined,
+    jobId: multi(filters, "job"),
   });
 
   const candidatesRes = data?.data?.candidates ?? [];
   const pagination = data?.data?.pagination;
-  const totalPages = pagination?.totalPages ?? 1;
 
   const rows = useMemo(() => {
     return candidatesRes.map((app: any) => ({
@@ -80,90 +68,64 @@ function CandidatesInner() {
     }));
   }, [candidatesRes]);
 
-  const hasActiveFilters = stageF.length > 0 || jobF.length > 0 || deptF.length > 0;
+
+  const total = pagination?.total ?? rows.length;
 
   return (
-    <div>
-      <PageHeader
-        breadcrumbs={[{ label: "Workspace" }, { label: "Candidates" }]}
-        title="Candidates"
-        description="Review and screen active applications for open positions"
-      />
+    <ListPage
+      header={<PageHeader title="Candidates" description="Review and screen active applications for open positions" />}
+    >
+      <ListToolbar className="shrink-0" search={<SearchField value={q} onChange={setQ} placeholder="Search by name or email" label="Search candidates" />}>
+        <Filters config={CANDIDATE_FILTERS} data={filterData} value={filters} onChange={setFilters} />
+      </ListToolbar>
 
-      <div className="px-4 py-6 md:px-8">
-        {/* Search + filter toolbar */}
-        <div className="flex flex-col gap-3 mb-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative flex-1 min-w-[220px]">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search by name, email, title…"
-                className="h-9 w-full rounded-lg border border-border bg-surface pl-9 pr-3 text-[13px] outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
-              />
-            </div>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={"inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-[12.5px] font-medium transition " + (showFilters ? "border-primary bg-primary/5 text-primary" : "border-border bg-surface hover:bg-secondary")}
-            >
-              <Filter className="h-3.5 w-3.5" />
-              Filters{" "}
-              {hasActiveFilters && (
-                <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[9px] text-primary-foreground">
-                  {stageF.length + jobF.length + deptF.length}
-                </span>
-              )}
-            </button>
-            <button onClick={() => { setDeptF([]); setStageF([]); setJobF([]); }} className="text-[11px] text-muted-foreground hover:text-foreground ml-1 font-medium underline underline-offset-2">Clear all filters</button>
-          </div>
-
-          {showFilters && (
-            <CandidateFilters
-              role={role}
-              departments={departments}
-              filteredJobsForFilter={filteredJobsForFilter}
-              stageF={stageF}
-              jobF={jobF}
-              deptF={deptF}
-              setStageF={setStageF}
-              setJobF={setJobF}
-              setDeptF={setDeptF}
-            />
-          )}
-        </div>
-
-        {/* Table */}
-        <div className="surface-card overflow-hidden">
-          <div className="hidden lg:grid grid-cols-6 gap-x-4 border-b border-border bg-surface-2 px-5 py-3 text-[10.5px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
-            <div>Candidate Name</div>
+      <TableCard
+        header={
+          <div className="hidden grid-cols-6 gap-x-4 px-4 py-2.5 lg:grid">
+            <div>Candidate</div>
             <div>Job</div>
             <div>Location</div>
-            <div>Referred By</div>
-            <div>Referred On</div>
+            <div>Referred by</div>
+            <div>Applied</div>
             <div className="text-right">Stage</div>
           </div>
-
-          <div className="flex flex-col divide-y divide-border">
+        }
+        footer={
+          !isLoading && total > 0 ? (
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              noun={total === 1 ? "candidate" : "candidates"}
+              onPageChange={setPage}
+              onPageSizeChange={(n) => {
+                setPageSize(n);
+                setPage(1);
+              }}
+            />
+          ) : undefined
+        }
+      >
+        <div aria-busy={isFetching} className={isFetching && !isLoading ? "opacity-70 transition-opacity" : "transition-opacity"}>
+          <div role="list" aria-label="Candidates" className="flex flex-col divide-y divide-border">
             {isLoading ? (
-              <Skeleton.Row count={6} />
+              <Skeleton.Row count={Math.min(pageSize, 8)} />
             ) : rows.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground text-[13px]">No candidates found.</div>
+              <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
+                <span className="grid size-10 place-items-center rounded-full bg-secondary text-muted-foreground">
+                  <Users className="size-5" aria-hidden="true" />
+                </span>
+                <p className="text-[13.5px] font-medium">{q || hasFilters ? "No candidates match your search" : "No candidates yet"}</p>
+                <p className="text-[12.5px] text-muted-foreground">
+                  {q || hasFilters ? "Try a different keyword or clear the filters." : "Applications from your careers page and referrals show up here."}
+                </p>
+              </div>
             ) : (
-              rows.map((c: any) => <CandidateRow key={c.id} candidate={c} />)
+              rows.map((c: any) => <CandidateRow key={`${c.id}-${c.jobId}`} candidate={c} />)
             )}
           </div>
-
-          {/* Pagination */}
-          <div className="flex items-center justify-between border-t border-border px-4 py-3 text-[12px] text-muted-foreground">
-            <div>Page {page} of {totalPages} {pagination?.total ? `(${pagination.total} total)` : ""}</div>
-            <div className="flex gap-1">
-              <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="h-7 rounded-md border border-border bg-surface px-2.5 text-[12px] hover:bg-secondary disabled:opacity-40">Previous</button>
-              <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="h-7 rounded-md border border-border bg-surface px-2.5 text-[12px] hover:bg-secondary disabled:opacity-40">Next</button>
-            </div>
-          </div>
         </div>
-      </div>
-    </div>
+      </TableCard>
+    </ListPage>
   );
 }

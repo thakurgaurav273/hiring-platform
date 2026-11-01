@@ -11,20 +11,20 @@ interface ActivityHeatMapProps {
 }
 
 export function ActivityHeatMap({ role, data }: ActivityHeatMapProps) {
-  // Use primary brand teal scale
+  // Density scale derived from the organization primary colour
   const getDensityClass = (count: number | undefined) => {
-    if (count === undefined || count === 0) return "bg-gray-100 hover:bg-gray-200 text-gray-500 border border-gray-100";
+    if (count === undefined || count === 0) return "bg-surface-2 hover:bg-muted text-muted-foreground border border-border";
     
     if (role === Role.ADMINISTRATOR || role === Role.HIRING_MANAGER) {
-      if (count <= 25) return "bg-[#0f766e]/20 hover:bg-[#0f766e]/30 text-[#0f766e]";
-      if (count <= 100) return "bg-[#0f766e]/40 hover:bg-[#0f766e]/50 text-[#0f766e]";
-      if (count <= 250) return "bg-[#0f766e]/70 hover:bg-[#0f766e]/80 text-white";
-      return "bg-[#0f766e] hover:bg-[#0b5c56] text-white";
+      if (count <= 25) return "bg-primary/15 hover:bg-primary/25 text-primary";
+      if (count <= 100) return "bg-primary/35 hover:bg-primary/45 text-foreground";
+      if (count <= 250) return "bg-primary/70 hover:bg-primary/80 text-primary-foreground";
+      return "bg-primary hover:bg-primary-hover text-primary-foreground";
     } else {
-      if (count <= 3) return "bg-[#0f766e]/20 hover:bg-[#0f766e]/30 text-[#0f766e]";
-      if (count <= 8) return "bg-[#0f766e]/40 hover:bg-[#0f766e]/50 text-[#0f766e]";
-      if (count <= 15) return "bg-[#0f766e]/70 hover:bg-[#0f766e]/80 text-white";
-      return "bg-[#0f766e] hover:bg-[#0b5c56] text-white";
+      if (count <= 3) return "bg-primary/15 hover:bg-primary/25 text-primary";
+      if (count <= 8) return "bg-primary/35 hover:bg-primary/45 text-foreground";
+      if (count <= 15) return "bg-primary/70 hover:bg-primary/80 text-primary-foreground";
+      return "bg-primary hover:bg-primary-hover text-primary-foreground";
     }
   };
 
@@ -59,11 +59,11 @@ export function ActivityHeatMap({ role, data }: ActivityHeatMapProps) {
         {/* Legend */}
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground font-medium hidden sm:flex">
           <span>Less</span>
-          <div className="w-3 h-3 rounded-sm bg-gray-100" />
-          <div className="w-3 h-3 rounded-sm bg-[#0f766e]/20" />
-          <div className="w-3 h-3 rounded-sm bg-[#0f766e]/40" />
-          <div className="w-3 h-3 rounded-sm bg-[#0f766e]/70" />
-          <div className="w-3 h-3 rounded-sm bg-[#0f766e]" />
+          <div className="w-3 h-3 rounded-sm bg-surface-2 border border-border" />
+          <div className="w-3 h-3 rounded-sm bg-primary/15" />
+          <div className="w-3 h-3 rounded-sm bg-primary/35" />
+          <div className="w-3 h-3 rounded-sm bg-primary/70" />
+          <div className="w-3 h-3 rounded-sm bg-primary" />
           <span>More</span>
         </div>
       </div>
@@ -82,12 +82,12 @@ export function ActivityHeatMap({ role, data }: ActivityHeatMapProps) {
             const dateStr = format(date, "yyyy-MM-dd");
             const count = data[dateStr] || 0;
             const isFuture = date > new Date() && !isToday(date);
-            const todayClass = isToday(date) ? "ring-2 ring-offset-2 ring-[#0f766e]" : "";
+            const todayClass = isToday(date) ? "ring-2 ring-offset-2 ring-offset-surface ring-primary" : "";
             
             // If future date, just render an empty placeholder to keep calendar structure
             if (isFuture) {
               return (
-                <div key={dateStr} className={`h-10 w-full rounded-md flex items-center justify-center text-[12px] font-medium bg-transparent text-gray-200 border border-dashed border-gray-200 ${todayClass}`}>
+                <div key={dateStr} className={`h-10 w-full rounded-md flex items-center justify-center text-[12px] font-medium bg-transparent text-muted-foreground/40 border border-dashed border-border ${todayClass}`}>
                   {format(date, "d")}
                 </div>
               );

@@ -1,271 +1,179 @@
 "use client";
 
-import { PageHeader, Avatar } from "@/components/app-shell";
-import { useAppStore } from "@/store/app.store";
+import { Suspense, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Bell, Globe, Info, KeyRound, Palette, Sun, User, Users, type LucideIcon } from "lucide-react";
+import { PageHeader } from "@/components/app-shell";
 import { Guard } from "@/components/access-restricted";
-import { Users, Bell, Plus, MoreHorizontal, User, Sun, Loader2 } from "lucide-react";
-import Link from "next/link";
-import { toast } from "sonner";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { useState } from "react";
-import { TEAM } from "@/constants/settings.constants";
-import {
-  ProfileSection,
-  ThemeSection,
-  NotificationsSection,
-  SettingsCard,
-  SettingsField,
-} from "@/features/settings/SettingsSections";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { usersService } from "@/services/api/users.service";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import { useAppStore } from "@/store/app.store";
+import { ProfileSection } from "@/features/settings/sections/ProfileSection";
+import { SecuritySection } from "@/features/settings/sections/SecuritySection";
+import { AppearanceSection } from "@/features/settings/sections/AppearanceSection";
+import { NotificationsSection } from "@/features/settings/sections/NotificationsSection";
+import { MembersSection } from "@/features/settings/sections/MembersSection";
+import { AboutSection } from "@/features/settings/sections/AboutSection";
+import { BrandingSettings } from "@/features/settings/branding/BrandingSettings";
+import { CareersSettings } from "@/features/settings/careers/CareersSettings";
+import { SectionHeader } from "@/features/settings/SettingsSections";
+import { cn } from "@/lib/utils";
 
-const inviteSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  role: z.enum(["administrator", "hiring_manager", "recruiter", "employee"]),
-});
+/** URL keys (?tab=…). Kept stable so existing links keep working. */
+const TABS = ["profile", "security", "appearance", "notifications", "branding", "careers", "users", "about"] as const;
+type Tab = (typeof TABS)[number];
+
+interface NavItem {
+  tab: Tab;
+  label: string;
+  icon: LucideIcon;
+  show: boolean;
+  /** Wide sections use the full content width; the rest are capped for readability. */
+  wide?: boolean;
+}
 
 export default function SettingsPage() {
   return (
     <Guard section="settings">
-      <SettingsInner />
+      {/* useSearchParams (for ?tab=) requires a Suspense boundary */}
+      <Suspense fallback={null}>
+        <SettingsInner />
+      </Suspense>
     </Guard>
   );
 }
 
 function SettingsInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const can = useAppStore((s) => s.can);
-  const [ui, setUi] = useState({
-    inviteOpen: false,
-    tab: "theme" as "theme" | "notifications" | "users" | "profile",
-    userToDelete: null as string | null,
-    userToUpdateRole: null as { id: string, role: string } | null,
-  });
+  const canManageBranding = useAppStore((s) => !!s.workspace?.permissions.canManageBranding);
+  const orgName = useAppStore((s) => s.workspace?.branding.displayName);
 
-  const queryClient = useQueryClient();
-  const { data: usersData, isLoading } = useQuery({
-    queryKey: ["users"],
-    queryFn: () => usersService.getUsers(),
-    enabled: ui.tab === "users" && can("users"),
-  });
-
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<z.infer<typeof inviteSchema>>({
-    resolver: zodResolver(inviteSchema),
-    defaultValues: { role: "employee" },
-  });
-
-  const inviteMutation = useMutation({
-    mutationFn: (data: z.infer<typeof inviteSchema>) => usersService.inviteUser(data),
-    onSuccess: () => {
-      toast.success("Invitation sent");
-      setUi(p => ({ ...p, inviteOpen: false }));
-      reset();
-      queryClient.invalidateQueries({ queryKey: ["users"] });
+  const allGroups: { label: string; items: NavItem[] }[] = [
+    {
+      label: "Account",
+      items: [
+        { tab: "profile", label: "Profile", icon: User, show: true },
+        { tab: "security", label: "Password & security", icon: KeyRound, show: true },
+        { tab: "appearance", label: "Appearance", icon: Sun, show: true },
+        { tab: "notifications", label: "Notifications", icon: Bell, show: true },
+      ],
     },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || "Failed to send invitation");
+    {
+      label: orgName ? `Organization · ${orgName}` : "Organization",
+      items: [
+        { tab: "branding", label: "Branding", icon: Palette, show: canManageBranding, wide: true },
+        { tab: "careers", label: "Careers & embed", icon: Globe, show: canManageBranding || can("jobs"), wide: true },
+        { tab: "users", label: "Members", icon: Users, show: can("users") },
+      ],
     },
-  });
+    { label: "Robin Talent", items: [{ tab: "about", label: "About", icon: Info, show: true }] },
+  ];
+  const groups = allGroups
+    .map((g) => ({ ...g, items: g.items.filter((i) => i.show) }))
+    .filter((g) => g.items.length > 0);
 
-  const deleteMutation = useMutation({
-    mutationFn: (id: string) => usersService.deleteUser(id),
-    onSuccess: () => {
-      toast.success("User deactivated successfully");
-      setUi(p => ({ ...p, userToDelete: null }));
-      queryClient.invalidateQueries({ queryKey: ["users"] });
-    },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || "Failed to deactivate user");
-    },
-  });
+  const visible = groups.flatMap((g) => g.items);
+  const requested = searchParams.get("tab") as Tab | null;
+  const current = visible.find((i) => i.tab === requested) ?? visible[0];
 
-  const roleMutation = useMutation({
-    mutationFn: ({ id, role }: { id: string, role: string }) => usersService.updateUserRole(id, role),
-    onSuccess: () => {
-      toast.success("User role updated");
-      setUi(p => ({ ...p, userToUpdateRole: null }));
-      queryClient.invalidateQueries({ queryKey: ["users"] });
-    },
-    onError: (err: any) => {
-      toast.error(err.response?.data?.message || "Failed to update role");
-    },
-  });
+  // Normalise unknown or forbidden tabs in the URL.
+  useEffect(() => {
+    if (requested !== current.tab) router.replace(`/settings?tab=${current.tab}`, { scroll: false });
+  }, [requested, current.tab, router]);
 
-  const onSubmit = (data: z.infer<typeof inviteSchema>) => {
-    inviteMutation.mutate(data);
-  };
-
-  const tabs = [
-    { v: "profile" as const, l: "Profile",       i: User,  show: true },
-    { v: "theme" as const,   l: "Theme",          i: Sun,   show: true },
-    { v: "notifications" as const, l: "Notifications", i: Bell, show: true },
-    { v: "users" as const,   l: "Users",          i: Users, show: can("users") },
-  ].filter((t) => t.show);
+  const select = (tab: Tab) => router.replace(`/settings?tab=${tab}`, { scroll: false });
 
   return (
     <div>
-      <PageHeader breadcrumbs={[{ label: "Settings" }]} title="Settings" />
+      <PageHeader
+        breadcrumbs={[{ label: "Settings" }]}
+        title="Settings"
+        description="Manage your account and how your organization uses Robin Talent."
+      />
 
-      {/* Tab bar */}
-      <div className="border-b border-border bg-background">
-        <div className="mx-auto flex max-w-4xl justify-center px-4 py-5 md:px-8">
-          <div className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-2 p-1 shadow-xs">
-            {tabs.map((t) => {
-              const active = ui.tab === t.v;
-              return (
-                <button
-                  key={t.v}
-                  onClick={() => setUi(p => ({ ...p, tab: t.v }))}
-                  className={
-                    "inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-[12.5px] font-medium transition " +
-                    (active ? "bg-surface text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground")
-                  }
-                >
-                  {t.l}
-                </button>
-              );
-            })}
+      <div className="px-4 py-6 md:px-8 lg:py-8">
+        <div className="mx-auto grid max-w-[1400px] gap-6 lg:grid-cols-[232px_minmax(0,1fr)] lg:gap-10">
+          {/* Mobile: section picker */}
+          <div className="lg:hidden">
+            <label htmlFor="settings-section" className="sr-only">
+              Settings section
+            </label>
+            <select id="settings-section" value={current.tab} onChange={(e) => select(e.target.value as Tab)} className="input h-11 font-medium">
+              {groups.map((g) => (
+                <optgroup key={g.label} label={g.label}>
+                  {g.items.map((i) => (
+                    <option key={i.tab} value={i.tab}>
+                      {i.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+
+          {/* Desktop: grouped side navigation */}
+          <nav aria-label="Settings" className="hidden lg:block">
+            <div className="sticky top-6 space-y-6">
+              {groups.map((g) => (
+                <div key={g.label}>
+                  <div className="mb-1.5 truncate px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground" title={g.label}>
+                    {g.label}
+                  </div>
+                  <ul className="space-y-0.5">
+                    {g.items.map((i) => {
+                      const active = i.tab === current.tab;
+                      return (
+                        <li key={i.tab}>
+                          <button
+                            type="button"
+                            onClick={() => select(i.tab)}
+                            aria-current={active ? "page" : undefined}
+                            className={cn(
+                              "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+                              active ? "bg-surface text-foreground shadow-xs ring-1 ring-border" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                            )}
+                          >
+                            <i.icon className={cn("size-4 shrink-0", active ? "text-primary" : "")} aria-hidden="true" />
+                            {i.label}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </nav>
+
+          {/* Content */}
+          <div className={cn("min-w-0", !current.wide && "max-w-3xl")}>
+            {current.tab === "profile" && <ProfileSection />}
+            {current.tab === "security" && <SecuritySection />}
+            {current.tab === "appearance" && <AppearanceSection />}
+            {current.tab === "notifications" && <NotificationsSection />}
+            {current.tab === "users" && <MembersSection />}
+            {current.tab === "about" && <AboutSection />}
+            {current.tab === "branding" && (
+              <>
+                <SectionHeader
+                  title="Branding"
+                  description="Your logo, name and colours across the app, invitation emails and your careers page. Changes apply to everyone in the organization."
+                />
+                <BrandingSettings />
+              </>
+            )}
+            {current.tab === "careers" && (
+              <>
+                <SectionHeader
+                  title="Careers & embed"
+                  description="Your public careers page, how to share it, and the jobs widget for your own website."
+                />
+                <CareersSettings canEdit={canManageBranding} />
+              </>
+            )}
           </div>
         </div>
       </div>
-
-      {/* Tab content */}
-      <div className="mx-auto max-w-3xl pt-2">
-        {ui.tab === "profile"       && <ProfileSection />}
-        {ui.tab === "theme"         && <ThemeSection />}
-        {ui.tab === "notifications" && <NotificationsSection />}
-
-        {ui.tab === "users" && can("users") && (
-          <SettingsCard
-            title="Users"
-            action={
-              <Dialog open={ui.inviteOpen} onOpenChange={(v) => setUi(p => ({ ...p, inviteOpen: v }))}>
-                <DialogTrigger asChild>
-                  <button className="h-8 inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 text-[12px] font-medium text-primary-foreground hover:opacity-90">
-                    <Plus className="h-3.5 w-3.5" /> Invite user
-                  </button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md">
-                  <form onSubmit={handleSubmit(onSubmit)}>
-                    <DialogHeader>
-                      <DialogTitle>Invite teammate</DialogTitle>
-                      <DialogDescription>They&apos;ll receive an email invitation to join your Grovyn workspace.</DialogDescription>
-                    </DialogHeader>
-                    <SettingsField label="Email">
-                      <input {...register("email")} placeholder="name@company.com" className="input" />
-                      {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
-                    </SettingsField>
-                    <SettingsField label="Role">
-                      <select {...register("role")} className="input">
-                        <option value="administrator">Administrator</option>
-                        <option value="hiring_manager">Hiring Manager</option>
-                        <option value="recruiter">Recruiter</option>
-                        <option value="employee">Employee</option>
-                      </select>
-                      {errors.role && <p className="text-red-500 text-xs mt-1">{errors.role.message}</p>}
-                    </SettingsField>
-                    <DialogFooter>
-                      <button type="button" onClick={() => setUi(p => ({ ...p, inviteOpen: false }))} className="h-9 rounded-md border border-border bg-surface px-3 text-[13px] font-medium hover:bg-secondary">Cancel</button>
-                      <button type="submit" disabled={inviteMutation.isPending} className="h-9 rounded-md bg-primary px-3 text-[13px] font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2">
-                        {inviteMutation.isPending && <Loader2 className="h-3 w-3 animate-spin" />} Send Invitation
-                      </button>
-                    </DialogFooter>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            }
-          >
-            <div className="divide-y divide-border">
-              {isLoading && <div className="py-8 text-center text-sm text-muted-foreground">Loading users...</div>}
-              {usersData?.users.map((t) => (
-                <div key={t.id} className="flex items-center gap-3 py-3">
-                  <Avatar name={`${t.firstName} ${t.lastName}`} size={30} url={t.avatarUrl} />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13px] font-medium">{t.firstName} {t.lastName}</div>
-                    <div className="truncate text-[11.5px] text-muted-foreground">{t.email}</div>
-                  </div>
-                  <span className="rounded-full bg-secondary px-2 py-0.5 text-[10.5px] font-medium">
-                    {t.role.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-                  </span>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-secondary">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setUi(p => ({ ...p, userToUpdateRole: { id: t.id, role: t.role } }))}>
-                        Change Role
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive" onClick={() => setUi(p => ({ ...p, userToDelete: t.id }))}>
-                        Deactivate
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              ))}
-              {!isLoading && usersData?.users.length === 0 && (
-                <div className="py-8 text-center text-sm text-muted-foreground">No users found</div>
-              )}
-            </div>
-
-            {/* Deletion Dialog */}
-            <Dialog open={!!ui.userToDelete} onOpenChange={(v) => !v && setUi(p => ({ ...p, userToDelete: null }))}>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Deactivate User</DialogTitle>
-                  <DialogDescription>
-                    Are you sure you want to deactivate this user? They will lose access to the system, but their data will remain intact.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <button type="button" onClick={() => setUi(p => ({ ...p, userToDelete: null }))} className="h-9 rounded-md border border-border bg-surface px-3 text-[13px] font-medium hover:bg-secondary">Cancel</button>
-                  <button type="button" onClick={() => ui.userToDelete && deleteMutation.mutate(ui.userToDelete)} disabled={deleteMutation.isPending} className="h-9 rounded-md bg-destructive px-3 text-[13px] font-medium text-destructive-foreground hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2">
-                    {deleteMutation.isPending && <Loader2 className="h-3 w-3 animate-spin" />} Deactivate
-                  </button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            {/* Role Change Dialog */}
-            <Dialog open={!!ui.userToUpdateRole} onOpenChange={(v) => !v && setUi(p => ({ ...p, userToUpdateRole: null }))}>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Change Role</DialogTitle>
-                  <DialogDescription>
-                    Update the access level for this user in the workspace.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="py-4">
-                  <SettingsField label="New Role">
-                    <select
-                      className="input"
-                      value={ui.userToUpdateRole?.role || "employee"}
-                      onChange={(e) => setUi(p => p.userToUpdateRole ? { ...p, userToUpdateRole: { ...p.userToUpdateRole, role: e.target.value } } : p)}
-                    >
-                      <option value="administrator">Administrator</option>
-                      <option value="hiring_manager">Hiring Manager</option>
-                      <option value="recruiter">Recruiter</option>
-                      <option value="employee">Employee</option>
-                    </select>
-                  </SettingsField>
-                </div>
-                <DialogFooter>
-                  <button type="button" onClick={() => setUi(p => ({ ...p, userToUpdateRole: null }))} className="h-9 rounded-md border border-border bg-surface px-3 text-[13px] font-medium hover:bg-secondary">Cancel</button>
-                  <button type="button" onClick={() => ui.userToUpdateRole && roleMutation.mutate(ui.userToUpdateRole)} disabled={roleMutation.isPending} className="h-9 rounded-md bg-primary px-3 text-[13px] font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2">
-                    {roleMutation.isPending && <Loader2 className="h-3 w-3 animate-spin" />} Save Changes
-                  </button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </SettingsCard>
-        )}
-      </div>
-
-      <style>{`.input { height: 40px; width: 100%; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-surface); padding: 0 12px; font-size: 13px; outline: none; }`}</style>
     </div>
   );
 }

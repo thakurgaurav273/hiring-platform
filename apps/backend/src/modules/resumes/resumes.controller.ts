@@ -1,3 +1,4 @@
+import * as tenant from "../../common/tenant/tenant-guards";
 import { Request, Response, NextFunction } from "express";
 import { StatusCodes } from "http-status-codes";
 import * as resumesService from "./resumes.service";
@@ -12,6 +13,8 @@ export const uploadResume = async (
         if (!req.file) {
             throw new AppError("No file uploaded", StatusCodes.BAD_REQUEST);
         }
+
+        await tenant.assertCandidateInOrg(req.params.candidateId ?? req.body.candidateId, req.user!.organizationId);
 
         const resume = await resumesService.uploadResume(
             req.params.candidateId,
@@ -34,6 +37,7 @@ export const getResumeById = async (
     next: NextFunction
 ) => {
     try {
+        await tenant.assertResumeInOrg(req.params.id, req.user!.organizationId);
         const resume = await resumesService.getResumeById(req.params.id);
 
         return res.status(StatusCodes.OK).json({
@@ -52,6 +56,7 @@ export const getResumesByCandidateId = async (
     next: NextFunction
 ) => {
     try {
+        await tenant.assertCandidateInOrg(req.params.candidateId, req.user!.organizationId);
         const resumes = await resumesService.getResumesByCandidateId(
             req.params.candidateId
         );
@@ -72,6 +77,7 @@ export const deleteResume = async (
     next: NextFunction
 ) => {
     try {
+        await tenant.assertResumeInOrg(req.params.id, req.user!.organizationId);
         await resumesService.deleteResume(req.params.id);
 
         return res.status(StatusCodes.OK).json({

@@ -14,6 +14,8 @@ declare global {
         email: string;
         role: Role;
         department?: string | null;
+        /** Tenant of the authenticated user. Always read from the database, never from the client. */
+        organizationId: string;
       };
     }
   }
@@ -46,7 +48,13 @@ async function authenticateUser(req: Request, res: Response, next: NextFunction)
       );
     }
 
-    req.user = { id, email, role, department: dbUser.department };
+    req.user = {
+      id,
+      email,
+      role,
+      department: dbUser.department,
+      organizationId: dbUser.organizationId,
+    };
     next();
   } catch (error) {
     logger.error('Authentication error:', error);

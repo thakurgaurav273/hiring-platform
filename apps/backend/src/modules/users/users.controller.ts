@@ -8,7 +8,7 @@ export const getAllUsers = async (
     next: NextFunction
 ) => {
     try {
-        const result = await usersService.getAllUsers(req.query as any);
+        const result = await usersService.getAllUsers(req.user!.organizationId, req.query as any);
 
         return res.status(StatusCodes.OK).json({
             success: true,
@@ -26,7 +26,7 @@ export const getUserById = async (
     next: NextFunction
 ) => {
     try {
-        const user = await usersService.getUserById(req.params.id);
+        const user = await usersService.getUserById(req.params.id, req.user!.organizationId);
 
         return res.status(StatusCodes.OK).json({
             success: true,
@@ -80,7 +80,7 @@ export const updateUser = async (
     next: NextFunction
 ) => {
     try {
-        const user = await usersService.updateUser(req.params.id, req.body, req.user!.id);
+        const user = await usersService.updateUser(req.params.id, req.body, req.user!.id, req.user!.organizationId);
 
         return res.status(StatusCodes.OK).json({
             success: true,
@@ -98,7 +98,7 @@ export const deleteUser = async (
     next: NextFunction
 ) => {
     try {
-        await usersService.deleteUser(req.params.id, req.user!.id);
+        await usersService.deleteUser(req.params.id, req.user!.id, req.user!.organizationId);
 
         return res.status(StatusCodes.OK).json({
             success: true,
@@ -111,7 +111,7 @@ export const deleteUser = async (
 
 export const inviteUser = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const result = await usersService.inviteUser(req.user!.id, req.body);
+        const result = await usersService.inviteUser(req.user!.id, req.user!.organizationId, req.body);
         return res.status(StatusCodes.CREATED).json({
             success: true,
             message: "User invited successfully",

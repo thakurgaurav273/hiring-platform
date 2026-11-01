@@ -3,11 +3,14 @@
 import Link from "next/link";
 import { Guard } from "@/components/access-restricted";
 import { PageHeader } from "@/components/app-shell";
-import { candidatesForJob } from "@/lib/mock-data";
 import { useAppStore } from "@/store/app.store";
 import { useJobs, useDeleteJob } from "@/hooks/useJobs";
 import type { Job } from "@/services/api/jobs.service";
-import { Plus, Search, Building } from "lucide-react";
+import { Briefcase, Plus } from "lucide-react";
+import { Filters, single, useResolvedFilters, type FilterValues } from "@/components/filters";
+import { JOB_FILTERS } from "@/constants/filters.config";
+import { ListToolbar, SearchField } from "@/components/list-toolbar";
+import { ListPage, TableCard, TablePagination, usePageSize } from "@/components/data-table";
 import { useMemo, useState, useEffect } from "react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -15,10 +18,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/skeletons";
-import { JobTableRow } from "@/features/jobs/JobTableRow";
-import { useRouter } from "next/navigation";
+import { JobTableRow, jobGridCols } from "@/features/jobs/JobTableRow";
 import { JobStatus, Role } from "@/constants/enums";
-import { getJobStatusLabel } from "@/lib/utils/formatters";
 
 
 export default function JobsPage() {
@@ -30,103 +31,130 @@ export default function JobsPage() {
 }
 
 function JobsInner() {
-  const router = useRouter();
   const role = useAppStore((s) => s.role);
   const [ui, setUi] = useState({
     q: "",
-    status: "All" as "All" | JobStatus,
-    department: "All",
+    filters: {} as FilterValues,
     deleteJob: null as Job | null,
+    page: 1,
   });
-
-  const { data, isLoading } = useJobs({
+  const [pageSize, setPageSize] = usePageSize("jobs");
+  // Departments come from an unfiltered request so the list doesn't shrink
+  // to the department that is currently selected.
+  const { data: allJobsData } = useJobs({ limit: 100 });
+  const departments = useMemo(
+    () => Array.from(new Set((allJobsData?.data?.jobs ?? []).map((j) => j.department).filter(Boolean))),
+    [allJobsData]
+  );
+  const filterData = useMemo(() => ({ departments }), [departments]);
+  const { values: filters } = useResolvedFilters(JOB_FILTERS, filterData, ui.filters);
+  const { data, isLoading, isFetching } = useJobs({
     search: ui.q || undefined,
-    status: ui.status !== "All" ? ui.status : undefined,
-    department: ui.department !== "All" ? ui.department : undefined,
+    status: single(filters, "status") as JobStatus | undefined,
+    department: single(filters, "department"),
+    page: ui.page,
+    limit: pageSize,
   });
   const deleteMutation = useDeleteJob();
-
   const jobs = data?.data?.jobs || [];
-  
-  // We can derive departments from the current dataset, or we'd ideally fetch a distinct list from the backend
-  const departments = useMemo(() => Array.from(new Set(jobs.map((j) => j.department))), [jobs]);
+  const total = data?.data?.pagination?.total ?? jobs.length;
+  const filtering = !!ui.q || Object.values(filters).some((v) => v?.length);
 
+  // Step back a page if the current one empties (e.g. after a delete).
+  const totalPages = data?.data?.pagination?.totalPages ?? 1;
+  useEffect(() => {
+    if (!isLoading && ui.page > 1 && ui.page > totalPages) setUi((p) => ({ ...p, page: Math.max(1, totalPages) }));
+  }, [isLoading, totalPages, ui.page]);
 
   return (
-    <div>
-      <PageHeader
-        breadcrumbs={[{ label: "Workspace" }, { label: "Jobs" }]}
-        title="Jobs"
-        description="Manage active job postings and openings"
-        actions={
-          <>
-            {[Role.ADMINISTRATOR, Role.HIRING_MANAGER].includes(role) && (
-              <Link href="/jobs/new" className="h-9 inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 text-[12.5px] font-medium text-primary-foreground shadow-sm transition hover:bg-[color:var(--color-primary-hover)]">
-                <Plus className="h-3.5 w-3.5" />
-                New job
-              </Link>
-            )}
-          </>
+    <>
+      <ListPage
+        header={
+          <PageHeader
+            title="Jobs"
+            description="Manage active job postings and openings"
+            actions={
+              [Role.ADMINISTRATOR, Role.HIRING_MANAGER].includes(role) && (
+                <Link href="/jobs/new" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-[12.5px] font-medium text-primary-foreground shadow-sm transition hover:bg-primary-hover">
+                  <Plus className="size-3.5" />
+                  New job
+                </Link>
+              )
+            }
+          />
         }
-      />
+      >
+        <ListToolbar
+          className="shrink-0"
+          search={<SearchField value={ui.q} onChange={(v) => setUi((p) => ({ ...p, q: v, page: 1 }))} placeholder="Search jobs or departments" label="Search jobs" />}
+        >
+          <Filters config={JOB_FILTERS} data={filterData} value={filters} onChange={(v) => setUi((p) => ({ ...p, filters: v, page: 1 }))} />
+        </ListToolbar>
 
-      <div className="w-full">
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[220px]">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input value={ui.q} onChange={(e) => setUi(p => ({ ...p, q: e.target.value }))} placeholder="Search jobs, departments…" className="h-9 w-full rounded-lg border border-border bg-surface pl-9 pr-3 text-[13px] outline-none focus:border-ring focus:ring-2 focus:ring-ring/20" />
-          </div>
-          {role === Role.ADMINISTRATOR && (
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 h-9">
-              <Building className="h-3.5 w-3.5 text-muted-foreground" />
-              <select
-                value={ui.department}
-                onChange={(e) => setUi(p => ({ ...p, department: e.target.value }))}
-                className="bg-transparent text-[12.5px] font-medium outline-none cursor-pointer text-muted-foreground focus:text-foreground"
-              >
-                <option value="All">All departments</option>
-                {departments.map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
+        <TableCard
+          header={
+            <div className={`grid items-center gap-x-4 px-4 py-2.5 ${jobGridCols(role)}`}>
+              <div>Job</div>
+              {role === Role.ADMINISTRATOR && <div className="hidden sm:block">Department</div>}
+              <div className="hidden md:block">Posted by</div>
+              <div className="hidden text-right lg:block">Openings</div>
+              <div className="hidden text-right lg:block">Applicants</div>
+              <div className="text-right">Posted</div>
+              <div><span className="sr-only">Actions</span></div>
             </div>
-          )}
-          <div className="flex flex-wrap items-center rounded-lg border border-border bg-surface p-0.5">
-            {["All", JobStatus.OPEN, JobStatus.DRAFT, JobStatus.ON_HOLD, JobStatus.CLOSED].map((s) => (
-              <button key={s} onClick={() => setUi(p => ({ ...p, status: s as any }))} className={"h-8 rounded-md px-2.5 text-[12px] font-medium " + (ui.status === s ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground")}>{s === "All" ? "All" : getJobStatusLabel(s as JobStatus)}</button>
+          }
+          footer={
+            !isLoading && total > 0 ? (
+              <TablePagination
+                page={ui.page}
+                pageSize={pageSize}
+                total={total}
+                noun={total === 1 ? "job" : "jobs"}
+                onPageChange={(page) => setUi((p) => ({ ...p, page }))}
+                onPageSizeChange={(n) => {
+                  setPageSize(n);
+                  setUi((p) => ({ ...p, page: 1 }));
+                }}
+              />
+            ) : undefined
+          }
+        >
+          <div role="list" aria-label="Jobs" aria-busy={isFetching} className={`divide-y divide-border transition-opacity ${isFetching && !isLoading ? "opacity-70" : ""}`}>
+            {isLoading &&
+              Array.from({ length: Math.min(pageSize, 8) }).map((_, k) => (
+                <div key={k} className="px-4 py-3">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="mt-2 h-3 w-32" />
+                </div>
+              ))}
+            {!isLoading && jobs.map((j: Job) => (
+              <JobTableRow key={j.id} job={j} role={role} onDelete={(val) => setUi((p) => ({ ...p, deleteJob: val }))} />
             ))}
           </div>
-        </div>
-
-        <div className="mt-2 flex flex-col">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-[13px]">
-              <thead className="border-y border-border bg-secondary/50 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                <tr>
-                  <th className="px-5 py-3 font-semibold">Job Name</th>
-                  {role === Role.ADMINISTRATOR && <th className="px-5 py-3 font-semibold hidden sm:table-cell">Department</th>}
-                  <th className="px-5 py-3 font-semibold hidden md:table-cell">Posted By</th>
-                  <th className="px-5 py-3 font-semibold hidden lg:table-cell">Openings</th>
-                  <th className="px-5 py-3 font-semibold text-right">Posted On</th>
-                  <th className="px-5 py-3 w-10"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {isLoading && <Skeleton.Table count={5} role={role} />}
-                {!isLoading && jobs.map((j: Job) => (
-                  <JobTableRow key={j.id} job={j} role={role} onDelete={(val) => setUi(p => ({ ...p, deleteJob: val as any }))} />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-
+          {!isLoading && jobs.length === 0 && (
+            <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
+              <span className="grid size-10 place-items-center rounded-full bg-secondary text-muted-foreground">
+                <Briefcase className="size-5" aria-hidden="true" />
+              </span>
+              <p className="text-[13.5px] font-medium">{filtering ? "No jobs match your search" : "No jobs yet"}</p>
+              <p className="text-[12.5px] text-muted-foreground">
+                {filtering ? "Try a different keyword or clear the filters." : "Create a job to start receiving applications."}
+              </p>
+              {!filtering && [Role.ADMINISTRATOR, Role.HIRING_MANAGER].includes(role) && (
+                <Link href="/jobs/new" className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-[12.5px] font-medium text-primary-foreground hover:bg-primary-hover">
+                  <Plus className="size-3.5" /> New job
+                </Link>
+              )}
+            </div>
+          )}
+        </TableCard>
+      </ListPage>
 
       <AlertDialog open={!!ui.deleteJob} onOpenChange={(o) => !o && setUi(p => ({ ...p, deleteJob: null }))}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete &quot;{ui.deleteJob?.title}&quot;?</AlertDialogTitle>
-            <AlertDialogDescription>This will permanently remove the job and detach all {ui.deleteJob ? candidatesForJob(ui.deleteJob.id).length : 0} candidates from it. This cannot be undone.</AlertDialogDescription>
+            <AlertDialogDescription>This permanently removes the job and its {ui.deleteJob?._count?.applications ?? 0} {ui.deleteJob?._count?.applications === 1 ? "application" : "applications"}. This can&apos;t be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -140,7 +168,7 @@ function JobsInner() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 }
 

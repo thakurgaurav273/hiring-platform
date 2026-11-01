@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { applicationQuestionsSchema } from "../applications/application-questions";
 
 
 export const createJobSchema = z.object({
@@ -64,6 +65,8 @@ export const createJobSchema = z.object({
             .int()
             .nonnegative("Maximum salary must be non-negative")
             .optional(),
+        // Custom questions shown on the public application form.
+        applicationQuestions: applicationQuestionsSchema.nullable().optional(),
     }),
 });
 

@@ -25,12 +25,12 @@ export const getAllNotes = async (query: {
     limit?: number;
     candidateId?: string;
     applicationId?: string;
-}) => {
+}, organizationId: string) => {
     const page = query.page ? Number(query.page) : 1;
     const limit = query.limit ? Number(query.limit) : 10;
     const { candidateId, applicationId } = query;
 
-    const where: Prisma.NoteWhereInput = {};
+    const where: Prisma.NoteWhereInput = { candidate: { organizationId } };
 
     if (candidateId) {
         where.candidateId = candidateId;
@@ -123,12 +123,12 @@ export const getAllFeedbacks = async (query: {
     limit?: number;
     applicationId?: string;
     interviewId?: string;
-}) => {
+}, organizationId: string) => {
     const page = query.page ? Number(query.page) : 1;
     const limit = query.limit ? Number(query.limit) : 10;
     const { applicationId, interviewId } = query;
 
-    const where: Prisma.FeedbackWhereInput = {};
+    const where: Prisma.FeedbackWhereInput = { application: { job: { organizationId } } };
 
     if (applicationId) {
         where.applicationId = applicationId;

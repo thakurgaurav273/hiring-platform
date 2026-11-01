@@ -38,11 +38,12 @@ export const logActivity = async (data: {
 };
 
 export const getDailyCounts = async (
-    user: { id: string; role: string; department?: string | null },
+    user: { id: string; role: string; department?: string | null; organizationId: string },
     startDate: string,
     endDate: string
 ) => {
-    const where: Prisma.DailyActivityCountWhereInput = {};
+    // Tenant isolation: only activity by members of this organization.
+    const where: Prisma.DailyActivityCountWhereInput = { actor: { organizationId: user.organizationId } };
 
     if (user.role === Role.hiring_manager) {
         if (user.department) {
@@ -59,9 +60,11 @@ export const getDailyCounts = async (
 };
 
 export const getTodaysActivities = async (
-    user: { id: string; role: string; department?: string | null }
+    user: { id: string; role: string; department?: string | null; organizationId: string }
 ) => {
-    const where: Prisma.ActivityLogWhereInput = {};
+    const where: Prisma.ActivityLogWhereInput = {
+        // Tenant isolation: activity by this organization\'s members or on its candidates.
+        AND: [{ OR: [{ actor: { organizationId: user.organizationId } }, { candidate: { organizationId: user.organizationId } }] }],};
 
     if (user.role === Role.hiring_manager) {
         if (user.department) {

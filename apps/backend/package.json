@@ -16,7 +16,10 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "lint": "eslint \"src/**/*.ts\"",
-    "format": "prettier --write \"src/**/*.ts\""
+    "format": "prettier --write \"src/**/*.ts\"",
+    "org:create": "ts-node --transpile-only src/scripts/create-organization.ts",
+    "seed:demo": "ts-node --transpile-only src/scripts/seed-demo.ts",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "ats",

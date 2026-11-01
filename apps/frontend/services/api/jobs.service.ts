@@ -22,6 +22,8 @@ export interface Job {
   status: "DRAFT" | "OPEN" | "ON_HOLD" | "CLOSED";
   numOpenings: number;
   applicationDeadline?: string | null;
+  /** Custom questions on the public application form. */
+  applicationQuestions?: import("@/lib/careers").ApplicationQuestion[] | null;
   recruiterId: string;
   recruiter: UserSummary;
   hiringManagerId?: string | null;

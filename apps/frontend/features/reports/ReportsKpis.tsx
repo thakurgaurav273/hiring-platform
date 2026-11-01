@@ -24,7 +24,7 @@ export function ReportsKpis({
           <div className="mt-2 font-display text-[26px] font-semibold tracking-tight">{s.v}</div>
           <div className="mt-1 text-[10.5px] text-muted-foreground">{rangeLabel}</div>
           <div className="mt-3 flex justify-end">
-            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[oklch(0.55_0.15_155)]">
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-success">
               <TrendingUp className="h-3 w-3" /> {s.d}
             </span>
           </div>

@@ -2,6 +2,7 @@
 
 import { Sparkles } from "lucide-react";
 import type { Candidate } from "@/lib/types";
+import { ApplicationResponses } from "@/features/candidates/ApplicationDetails";
 
 interface CandidateOverviewTabProps {
   live: any;
@@ -12,6 +13,7 @@ export function CandidateOverviewTab({ live }: CandidateOverviewTabProps) {
   
   return (
     <div className="mt-5 space-y-4">
+      <ApplicationResponses application={live.applications?.[0]} />
       {live.summary && (
         <div className="surface-card p-5">
           <div className="flex items-center justify-between">

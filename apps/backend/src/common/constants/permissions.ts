@@ -20,11 +20,15 @@ export enum Permission {
     READ_FEEDBACK = "read:feedback",
     UPDATE_FEEDBACK = "update:feedback",
     DELETE_FEEDBACK = "delete:feedback",
+
+    // Organization-level settings. Organization owners are always allowed,
+    // regardless of role (see organization.service.ts#canManageBranding).
+    MANAGE_BRANDING = "manage:branding",
 }
 
 export const PERMISSION_MATRIX: Record<Role, Permission[]> = {
     administrator: Object.values(Permission),
-    recruiter: Object.values(Permission),
+    recruiter: Object.values(Permission).filter((p) => p !== Permission.MANAGE_BRANDING),
     hiring_manager: [
         Permission.READ_JOB,
         Permission.CREATE_JOB,

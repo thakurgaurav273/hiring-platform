@@ -74,16 +74,16 @@ export function ActivityLedger({ activities }: ActivityLedgerProps) {
                     </div>
                   </div>
                   
-                  <div className="mt-1.5 p-3 rounded-[14px] bg-gray-50/80 border border-gray-100 flex items-start gap-3">
+                  <div className="mt-1.5 p-3 rounded-[14px] bg-surface-2/80 border border-border flex items-start gap-3">
                      <div className="mt-0.5 text-muted-foreground">
-                        {Icon && <Icon className="w-4 h-4 text-[#0f766e]" />}
+                        {Icon && <Icon className="w-4 h-4 text-primary" />}
                      </div>
                      <div>
                        <div className="text-[13px] text-foreground font-medium">{e.type.replace(/_/g, " ")}</div>
                        {e.entityType === "Candidate" && (
                           <div className="mt-1 flex items-center gap-1.5 text-[12px] text-muted-foreground">
                             <span>Candidate ID:</span>
-                            <Link href={`/candidates/${e.entityId}`} className="font-medium text-[#0f766e] hover:underline">
+                            <Link href={`/candidates/${e.entityId}`} className="font-medium text-primary hover:underline">
                               {e.entityId.slice(0, 8)}...
                             </Link>
                           </div>
@@ -91,7 +91,7 @@ export function ActivityLedger({ activities }: ActivityLedgerProps) {
                        {e.entityType === "Job" && (
                           <div className="mt-1 flex items-center gap-1.5 text-[12px] text-muted-foreground">
                             <span>Job ID:</span>
-                            <Link href={`/jobs/${e.entityId}`} className="font-medium text-[#0f766e] hover:underline">
+                            <Link href={`/jobs/${e.entityId}`} className="font-medium text-primary hover:underline">
                               {e.entityId.slice(0, 8)}...
                             </Link>
                           </div>

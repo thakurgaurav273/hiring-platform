@@ -4,6 +4,8 @@ import usersController from "./users.controller";
 import authenticateUser from "../../common/middlewares/auth.middleware";
 import validate from "../../common/middlewares/validate.middleware";
 import { requireRole } from "../../common/middlewares/roles.middleware";
+import organizationController from "../organization/organization.controller";
+import { updatePreferencesSchema } from "../organization/organization.validation";
 
 import {
     getUsersSchema,
@@ -29,6 +31,20 @@ router.patch(
     authenticateUser,
     validate(updateMeSchema),
     usersController.updateMe
+);
+
+// Personal appearance preferences (never affect organization branding)
+router.get(
+    "/me/preferences",
+    authenticateUser,
+    organizationController.getPreferences
+);
+
+router.put(
+    "/me/preferences",
+    authenticateUser,
+    validate(updatePreferencesSchema),
+    organizationController.updatePreferences
 );
 
 // Admin-only user management

@@ -18,7 +18,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, router, mounted]);
 
   if (!mounted || !isAuthenticated) {
-    return <div className="min-h-screen bg-[#0B1319]" />; // prevents flash of content
+    return <div className="min-h-screen bg-background" />; // prevents flash of content
   }
 
   return <AppShell>{children}</AppShell>;

@@ -204,12 +204,16 @@ function Table({ count = 5, role }: { count?: number; role?: string }) {
     <>
       {Array.from({ length: count }).map((_, i) => (
         <tr key={i}>
-          <td className="px-5 py-4"><ShadcnSkeleton className="h-5 w-32" /></td>
-          {role === "Administrator" && <td className="px-5 py-4 hidden sm:table-cell"><ShadcnSkeleton className="h-4 w-24" /></td>}
-          <td className="px-5 py-4 hidden md:table-cell"><ShadcnSkeleton className="h-4 w-24" /></td>
-          <td className="px-5 py-4 hidden lg:table-cell"><ShadcnSkeleton className="h-4 w-12" /></td>
-          <td className="px-5 py-4 text-right"><ShadcnSkeleton className="h-4 w-16 ml-auto" /></td>
-          <td className="px-5 py-4"><ShadcnSkeleton className="h-6 w-6 ml-auto" /></td>
+          <td className="px-4 py-3">
+            <ShadcnSkeleton className="h-4 w-48" />
+            <ShadcnSkeleton className="mt-2 h-3 w-32" />
+          </td>
+          {role === "administrator" && <td className="hidden px-4 py-3 sm:table-cell"><ShadcnSkeleton className="h-4 w-24" /></td>}
+          <td className="hidden px-4 py-3 md:table-cell"><ShadcnSkeleton className="h-4 w-24" /></td>
+          <td className="hidden px-4 py-3 lg:table-cell"><ShadcnSkeleton className="ml-auto h-4 w-8" /></td>
+          <td className="hidden px-4 py-3 lg:table-cell"><ShadcnSkeleton className="ml-auto h-4 w-8" /></td>
+          <td className="px-4 py-3"><ShadcnSkeleton className="ml-auto h-4 w-12" /></td>
+          <td className="px-2 py-3"><ShadcnSkeleton className="ml-auto size-6" /></td>
         </tr>
       ))}
     </>

@@ -9,15 +9,8 @@ export const createCandidate = async (
     next: NextFunction
 ) => {
     try {
-        const candidate = await candidateService.createCandidate(
-            req.body,
-            req.user!.id
-        );
-
-        if (req.file) {
-            const resumesService = await import("../resumes/resumes.service");
-            await resumesService.uploadResume(candidate.id, req.file);
-        }
+        // The résumé is stored by the ingestion service and linked to the new application.
+        const candidate = await candidateService.createCandidate(req.body, req.user!, req.file);
 
         return res.status(StatusCodes.CREATED).json({
             success: true,
@@ -79,10 +72,7 @@ export const updateCandidate = async (
 ) => {
     try {
         const candidate =
-            await candidateService.updateCandidate(
-                req.params.id,
-                req.body
-            );
+            await candidateService.updateCandidate(req.params.id, req.body, req.user!.organizationId);
 
         return res.status(StatusCodes.OK).json({
             success: true,
@@ -124,7 +114,7 @@ export const deleteCandidate = async (
     next: NextFunction
 ) => {
     try {
-        await candidateService.deleteCandidate(req.params.id);
+        await candidateService.deleteCandidate(req.params.id, req.user!.organizationId);
 
         return res.status(StatusCodes.OK).json({
             success: true,
@@ -141,7 +131,7 @@ export const getCandidateNotes = async (
     next: NextFunction
 ) => {
     try {
-        const notes = await candidateService.getCandidateNotes(req.params.id);
+        const notes = await candidateService.getCandidateNotes(req.params.id, req.user!.organizationId);
 
         return res.status(StatusCodes.OK).json({
             success: true,
@@ -159,12 +149,7 @@ export const addCandidateNote = async (
     next: NextFunction
 ) => {
     try {
-        const note = await candidateService.addCandidateNote(
-            req.params.id,
-            req.user!.id,
-            req.body.content,
-            req.body.opinion
-        );
+        const note = await candidateService.addCandidateNote(req.params.id, req.user!.id, req.body.content, req.body.opinion, req.user!.organizationId);
 
         return res.status(StatusCodes.CREATED).json({
             success: true,
@@ -182,7 +167,7 @@ export const getCandidateTimeline = async (
     next: NextFunction
 ) => {
     try {
-        const timeline = await candidateService.getCandidateTimeline(req.params.id);
+        const timeline = await candidateService.getCandidateTimeline(req.params.id, req.user!.organizationId);
 
         return res.status(StatusCodes.OK).json({
             success: true,

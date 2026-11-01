@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Bell, Settings as SettingsIcon, Sun, Moon, LogOut } from "lucide-react";
 import { useAppStore } from "@/store/app.store";
 import {
@@ -12,6 +13,8 @@ import { toast } from "sonner";
 import { Avatar } from "@/components/app-shell";
 import { useNotifications, useUnreadCount, useMarkRead, useMarkAllRead } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
+import { useTheme } from "@/components/theme-provider";
+import { useUpdateAppearance } from "@/hooks/useWorkspace";
 
 export function UserMenuButton() {
   const role = useAppStore((s) => s.role);
@@ -51,7 +54,7 @@ export function UserMenuContent({ router }: { router: ReturnType<typeof useRoute
         <SettingsIcon className="h-4 w-4" /> Settings
       </DropdownMenuItem>
       <DropdownMenuSeparator />
-      <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950">
+      <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
         <LogOut className="h-4 w-4" /> Log out
       </DropdownMenuItem>
     </DropdownMenuContent>
@@ -60,8 +63,10 @@ export function UserMenuContent({ router }: { router: ReturnType<typeof useRoute
 
 export function NotificationsMenu() {
   const router = useRouter();
+  // The list loads when the menu opens; the badge count loads on its own.
+  const [open, setOpen] = useState(false);
 
-  const { data, isLoading } = useNotifications();
+  const { data, isLoading } = useNotifications(1, { enabled: open });
   const { data: unreadCount = 0 } = useUnreadCount();
   const markReadMutation = useMarkRead();
   const markAllReadMutation = useMarkAllRead();
@@ -74,7 +79,7 @@ export function NotificationsMenu() {
   };
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button className="relative grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground">
           <Bell className="h-[17px] w-[17px]" />
@@ -146,17 +151,19 @@ export function NotificationsMenu() {
   );
 }
 
+/** Quick light/dark switch. Saves the user's personal appearance preference. */
 export function ThemeToggle() {
-  const theme = useAppStore((s) => s.theme);
-  const setTheme = useAppStore((s) => s.setTheme);
-
+  const { mode } = useTheme();
+  const updateAppearance = useUpdateAppearance();
+  const next = mode === "dark" ? "light" : "dark";
   return (
     <button
-      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      onClick={() => updateAppearance.mutate(next)}
       className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
-      aria-label="Toggle theme"
+      aria-label={`Switch to ${next} mode`}
+      title={`Switch to ${next} mode`}
     >
-      {theme === "dark" ? <Sun className="h-[17px] w-[17px]" /> : <Moon className="h-[17px] w-[17px]" />}
+      {mode === "dark" ? <Sun className="h-[17px] w-[17px]" /> : <Moon className="h-[17px] w-[17px]" />}
     </button>
   );
 }

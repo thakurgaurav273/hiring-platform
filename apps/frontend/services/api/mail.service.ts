@@ -2,6 +2,7 @@ import { api } from "./axios";
 
 export interface Message {
   id: string;
+  direction?: "INBOUND" | "OUTBOUND";
   from: string;
   fromName?: string;
   to: string;
@@ -13,8 +14,11 @@ export interface Message {
 export interface Thread {
   id: string;
   candidateId?: string | null;
+  /** The candidate this conversation is with, when linked. */
+  candidate?: { id: string; name: string; email: string } | null;
   subject: string;
   preview: string;
+  lastMessageAt?: string;
   unread: boolean;
   starred: boolean;
   archived: boolean;

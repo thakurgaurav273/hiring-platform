@@ -46,7 +46,8 @@ const findInterviewById = async (id: string) => {
                     candidate: { select: { id: true, firstName: true, lastName: true, email: true } },
                     job: { select: { id: true, title: true, department: true } }
                 }
-            }
+            },
+            feedbacks: { select: { id: true, interviewerId: true, rating: true, recommendation: true } },
         },
     });
 };
@@ -78,7 +79,9 @@ const findAllInterviews = async (params: {
                     candidate: { select: { id: true, firstName: true, lastName: true, email: true } },
                     job: { select: { id: true, title: true, department: true } }
                 }
-            }
+            },
+            // Summary only; comments are read on the candidate profile.
+            feedbacks: { select: { id: true, interviewerId: true, rating: true, recommendation: true } },
         },
     });
 };

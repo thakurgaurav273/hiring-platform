@@ -6,7 +6,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { toast } from "sonner";
+import { EMPLOYMENT_LABELS } from "@/lib/careers";
 import { useRouter } from "next/navigation";
 import type { Job } from "@/services/api/jobs.service";
 import { JobStatus, Role } from "@/constants/enums";
@@ -19,77 +19,94 @@ interface JobTableRowProps {
 }
 
 const STATUS_CLASS: Record<JobStatus, string> = {
-  [JobStatus.OPEN]:     "bg-[oklch(0.94_0.05_155)] text-[oklch(0.36_0.09_155)]",
+  [JobStatus.OPEN]:     "tone-soft [--tone:var(--color-success)]",
   [JobStatus.DRAFT]:    "bg-secondary text-muted-foreground",
-  [JobStatus.ON_HOLD]: "bg-[oklch(0.95_0.06_75)] text-[oklch(0.4_0.09_75)]",
-  [JobStatus.CLOSED]:   "bg-[oklch(0.94_0.03_25)] text-[oklch(0.4_0.08_25)]",
+  [JobStatus.ON_HOLD]: "tone-soft [--tone:var(--color-warning)]",
+  [JobStatus.CLOSED]:   "tone-soft [--tone:var(--color-destructive)]",
 };
 
 function StatusPill({ status }: { status: Job["status"] }) {
   return (
-    <span className={"inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10.5px] font-medium " + STATUS_CLASS[status as JobStatus]}>
+    <span className={"inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[10.5px] font-medium " + STATUS_CLASS[status as JobStatus]}>
       <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
       {getJobStatusLabel(status as JobStatus)}
     </span>
   );
 }
 
+/** Column template shared by the jobs header and rows (Department is admin-only). */
+export function jobGridCols(role: Role) {
+  return role === Role.ADMINISTRATOR
+    ? "grid-cols-[minmax(0,1fr)_72px_36px] sm:grid-cols-[minmax(0,1fr)_150px_72px_36px] md:grid-cols-[minmax(0,1fr)_150px_150px_72px_36px] lg:grid-cols-[minmax(0,1fr)_150px_150px_80px_90px_72px_36px]"
+    : "grid-cols-[minmax(0,1fr)_72px_36px] md:grid-cols-[minmax(0,1fr)_150px_72px_36px] lg:grid-cols-[minmax(0,1fr)_150px_80px_90px_72px_36px]";
+}
+
 export function JobTableRow({ job: j, role, onDelete }: JobTableRowProps) {
   const router = useRouter();
+  const open = () => router.push(`/jobs/${j.id}`);
 
   return (
-    <tr
-      className="group transition hover:bg-secondary/40 cursor-pointer"
-      onClick={() => router.push(`/jobs/${j.id}`)}
+    <div
+      role="listitem"
+      className={`group grid cursor-pointer items-center gap-x-4 px-4 py-3 transition-colors hover:bg-secondary/40 ${jobGridCols(role)}`}
+      onClick={open}
     >
-      <td className="px-5 py-4">
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-2">
-            <StatusPill status={j.status} />
-          </div>
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-2">
           <Link
             href={`/jobs/${j.id}`}
-            className="block font-medium text-[14.5px] text-foreground hover:underline group-hover:text-primary"
+            onClick={(e) => e.stopPropagation()}
+            className="truncate text-[13.5px] font-medium text-foreground hover:underline group-hover:text-primary"
           >
             {j.title}
           </Link>
-          <div className="flex items-center gap-2 text-[11.5px] text-muted-foreground">
-            <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" /> {j.location}</span>
-            <span>•</span>
-            <span className="inline-flex items-center gap-1"><Users className="h-3 w-3" /> {j._count?.applications || 0} applicants</span>
-          </div>
+          <StatusPill status={j.status} />
         </div>
-      </td>
+        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-muted-foreground">
+          {j.location && (
+            <span className="inline-flex items-center gap-1">
+              <MapPin className="size-3" aria-hidden="true" /> {j.location}
+            </span>
+          )}
+          <span>{EMPLOYMENT_LABELS[j.employmentType] ?? j.employmentType}</span>
+          <span className="inline-flex items-center gap-1 lg:hidden">
+            <Users className="size-3" aria-hidden="true" /> {j._count?.applications ?? 0}
+          </span>
+        </div>
+      </div>
 
       {role === Role.ADMINISTRATOR && (
-        <td className="px-5 py-4 hidden sm:table-cell text-muted-foreground">
-          <div className="flex items-center gap-1.5"><Briefcase className="h-3.5 w-3.5" /> {j.department}</div>
-        </td>
+        <div className="hidden min-w-0 truncate text-[13px] text-muted-foreground sm:block">
+          <span className="inline-flex items-center gap-1.5">
+            <Briefcase className="size-3.5 shrink-0" aria-hidden="true" /> {j.department}
+          </span>
+        </div>
       )}
-
-      <td className="px-5 py-4 hidden md:table-cell text-muted-foreground">{j.createdBy ? `${j.createdBy.firstName} ${j.createdBy.lastName}` : "Unknown"}</td>
-      <td className="px-5 py-4 hidden lg:table-cell text-muted-foreground">{j.numOpenings}</td>
-      <td className="px-5 py-4 text-right text-muted-foreground whitespace-nowrap text-[12px]">
+      <div className="hidden truncate text-[13px] text-muted-foreground md:block">
+        {j.createdBy ? `${j.createdBy.firstName} ${j.createdBy.lastName}` : "–"}
+      </div>
+      <div className="hidden text-right text-[13px] tabular-nums text-muted-foreground lg:block">{j.numOpenings}</div>
+      <div className="hidden text-right text-[13px] tabular-nums lg:block">{j._count?.applications ?? 0}</div>
+      <div className="whitespace-nowrap text-right text-[12.5px] text-muted-foreground">
         {new Date(j.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-      </td>
-      <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+      </div>
+      <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
         {[Role.ADMINISTRATOR, Role.HIRING_MANAGER].includes(role) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-secondary">
-                <MoreHorizontal className="h-4 w-4" />
+              <button className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label={`Actions for ${j.title}`}>
+                <MoreHorizontal className="size-4" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild><Link href={`/jobs/${j.id}`}>Open</Link></DropdownMenuItem>
               <DropdownMenuItem asChild><Link href={`/jobs/${j.id}/edit`}>Edit</Link></DropdownMenuItem>
-              <DropdownMenuItem onClick={() => toast.success("Job duplicated")}>Duplicate</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => toast("Archived")}>Archive</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-destructive" onClick={() => onDelete(j)}>Delete</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-      </td>
-    </tr>
+      </div>
+    </div>
   );
 }

@@ -8,6 +8,23 @@ import prisma from "../../database/prisma-client";
 
 import { logActivity } from "../timeline/timeline.service";
 
+export interface Actor {
+    id: string;
+    role: string;
+    department?: string | null;
+    organizationId: string;
+}
+
+async function assertUserInOrganization(userId: string, organizationId: string) {
+    const u = await prisma.user.findFirst({ where: { id: userId, organizationId }, select: { id: true } });
+    if (!u) throw new AppError("User not found in this organization", StatusCodes.BAD_REQUEST);
+}
+
+async function displayName(userId: string) {
+    const u = await prisma.user.findUnique({ where: { id: userId }, select: { firstName: true, lastName: true } });
+    return u ? `${u.firstName} ${u.lastName}` : "System";
+}
+
 export const createJob = async (
     data: {
         title: string;
@@ -22,17 +39,29 @@ export const createJob = async (
         status?: "DRAFT" | "OPEN" | "ON_HOLD" | "CLOSED";
         salaryMin?: number;
         hiringManagerId?: string;
+        applicationQuestions?: unknown;
     },
-    recruiterId: string
+    recruiterId: string,
+    organizationId: string
 ) => {
-    const { openings, ...rest } = data;
+    const { openings, applicationQuestions, ...rest } = data;
+
+    if (rest.hiringManagerId) await assertUserInOrganization(rest.hiringManagerId, organizationId);
 
     const job = await jobsRepository.createJob({
         ...rest,
+        organizationId,
         numOpenings: openings,
         recruiterId,
         createdById: recruiterId,
+        applicationQuestions: (applicationQuestions as Prisma.InputJsonValue) ?? undefined,
     });
+
+    // Open jobs go on the careers page straight away.
+    if (job.status === "OPEN") {
+        const { syncCareersPublication } = await import("../distribution/distribution.service");
+        await syncCareersPublication(job.id, recruiterId);
+    }
 
     const user = await prisma.user.findUnique({ where: { id: recruiterId } });
 
@@ -65,12 +94,13 @@ export const getAllJobs = async (query: {
     department?: string;
     status?: "DRAFT" | "OPEN" | "ON_HOLD" | "CLOSED";
     isReferral?: boolean;
-}, user: { id: string; role: string; department?: string | null }) => {
+}, user: Actor) => {
     const page = query.page ? Number(query.page) : 1;
     const limit = query.limit ? Number(query.limit) : 10;
     const { search, department, status } = query;
 
-    const where: Prisma.JobWhereInput = {};
+    // Tenant isolation first; role rules below narrow further.
+    const where: Prisma.JobWhereInput = { organizationId: user.organizationId };
 
     if (search) {
         where.OR = [
@@ -100,11 +130,16 @@ export const getAllJobs = async (query: {
         }
 
         if (user.role === "recruiter" || user.role === "employee") {
-            where.OR = [
-                { recruiterId: user.id },
-                { hiringManagerId: user.id },
-                { createdById: user.id },
-                { hiringTeamMembers: { some: { id: user.id } } },
+            // AND, so the search OR above is kept rather than overwritten.
+            where.AND = [
+                {
+                    OR: [
+                        { recruiterId: user.id },
+                        { hiringManagerId: user.id },
+                        { createdById: user.id },
+                        { hiringTeamMembers: { some: { id: user.id } } },
+                    ],
+                },
             ];
         }
     }
@@ -128,10 +163,10 @@ export const getAllJobs = async (query: {
     };
 };
 
-export const getJobById = async (id: string, user: { id: string; role: string; department?: string | null }) => {
+export const getJobById = async (id: string, user: Actor) => {
     const job = await jobsRepository.findJobById(id);
 
-    if (!job) {
+    if (!job || job.organizationId !== user.organizationId) {
         throw new AppError("Job not found", StatusCodes.NOT_FOUND);
     }
 
@@ -173,19 +208,24 @@ export const updateJob = async (
         status?: "DRAFT" | "OPEN" | "ON_HOLD" | "CLOSED";
         salaryMin?: number;
         salaryMax?: number;
-    }
+        applicationQuestions?: unknown;
+    },
+    actor: Actor
 ) => {
     const existingJob = await jobsRepository.findJobById(id);
 
-    if (!existingJob) {
+    if (!existingJob || existingJob.organizationId !== actor.organizationId) {
         throw new AppError("Job not found", StatusCodes.NOT_FOUND);
     }
 
-    const { openings, ...rest } = data;
+    const { openings, applicationQuestions, ...rest } = data;
 
     const updateData: Prisma.JobUpdateInput = {
         ...rest,
     };
+    if (applicationQuestions !== undefined) {
+        updateData.applicationQuestions = (applicationQuestions as Prisma.InputJsonValue) ?? Prisma.DbNull;
+    }
 
     if (openings !== undefined) {
         updateData.numOpenings = openings;
@@ -193,13 +233,20 @@ export const updateJob = async (
 
     const updatedJob = await jobsRepository.updateJob(id, updateData);
 
+    // Status changes keep the careers page in step: open → published,
+    // on hold → paused, closed/draft → unpublished.
+    if (data.status && data.status !== existingJob.status) {
+        const { syncCareersPublication } = await import("../distribution/distribution.service");
+        await syncCareersPublication(updatedJob.id, actor.id);
+    }
+
     // Notify on update (fire-and-forget)
     const { notifyJobUpdated } = await import("../notifications/notification.service");
     notifyJobUpdated({
         jobId: updatedJob.id,
         jobTitle: updatedJob.title,
         jobDepartment: updatedJob.department,
-        updatedByName: "System",
+        updatedByName: await displayName(actor.id),
         statusChange: data.status,
     }).catch(console.error);
 
@@ -207,10 +254,10 @@ export const updateJob = async (
 };
 
 
-export const deleteJob = async (id: string) => {
+export const deleteJob = async (id: string, organizationId: string) => {
     const existingJob = await jobsRepository.findJobById(id);
 
-    if (!existingJob) {
+    if (!existingJob || existingJob.organizationId !== organizationId) {
         throw new AppError("Job not found", StatusCodes.NOT_FOUND);
     }
 
@@ -219,11 +266,12 @@ export const deleteJob = async (id: string) => {
     return;
 };
 
-export const inviteToHiringTeam = async (jobId: string, userId: string, inviter: { id: string, name?: string }) => {
+export const inviteToHiringTeam = async (jobId: string, userId: string, inviter: { id: string, name?: string; organizationId: string }) => {
     const job = await jobsRepository.findJobById(jobId);
-    if (!job) throw new AppError("Job not found", StatusCodes.NOT_FOUND);
+    if (!job || job.organizationId !== inviter.organizationId) throw new AppError("Job not found", StatusCodes.NOT_FOUND);
 
-    const userToInvite = await prisma.user.findUnique({ where: { id: userId } });
+    // Only members of the same organization can join a job's hiring team.
+    const userToInvite = await prisma.user.findFirst({ where: { id: userId, organizationId: inviter.organizationId } });
     if (!userToInvite) throw new AppError("User not found", StatusCodes.NOT_FOUND);
 
     // Check if already in hiring team
@@ -318,9 +366,9 @@ export const acceptHiringTeamInvitation = async (token: string, userId: string) 
     return { jobId: invitation.jobId };
 };
 
-export const getEligibleTeamMembers = async (jobId: string) => {
+export const getEligibleTeamMembers = async (jobId: string, organizationId: string) => {
     const job = await jobsRepository.findJobById(jobId);
-    if (!job) throw new AppError("Job not found", StatusCodes.NOT_FOUND);
+    if (!job || job.organizationId !== organizationId) throw new AppError("Job not found", StatusCodes.NOT_FOUND);
 
     const existingMemberIds = [
         job.recruiterId,
@@ -332,6 +380,8 @@ export const getEligibleTeamMembers = async (jobId: string) => {
 
     const users = await prisma.user.findMany({
         where: {
+            organizationId,
+            isActive: true,
             role: { in: ["hiring_manager", "recruiter", "employee"] },
             id: { notIn: existingMemberIds as string[] }
         },

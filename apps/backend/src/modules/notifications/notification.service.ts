@@ -3,7 +3,12 @@ import prisma from "../../database/prisma-client";
 import notificationRepository, { CreateNotificationInput } from "./notification.repository";
 import { sendFcmMulticast } from "../../config/firebase-admin.config";
 
+/** Keys of User.notificationPreferences. A missing key means the user wants it. */
+export type NotificationPreference = "newApplications" | "stageChanges" | "interviewReminders";
+
 interface NotificationPayload {
+    /** When set, users who switched this preference off are skipped. Not stored. */
+    preference?: NotificationPreference;
     title: string;
     body: string;
     category: NotificationCategory;
@@ -24,7 +29,23 @@ async function deliverNotifications(
 
     try {
         // Deduplicate
-        const uniqueIds = [...new Set(userIds)];
+        let uniqueIds = [...new Set(userIds)];
+
+        // Respect per-user preferences
+        if (payload.preference) {
+            const key = payload.preference;
+            const users = await prisma.user.findMany({
+                where: { id: { in: uniqueIds } },
+                select: { id: true, notificationPreferences: true },
+            });
+            const optedOut = new Set(
+                users
+                    .filter((u) => (u.notificationPreferences as Record<string, unknown> | null)?.[key] === false)
+                    .map((u) => u.id)
+            );
+            uniqueIds = uniqueIds.filter((id) => !optedOut.has(id));
+            if (!uniqueIds.length) return;
+        }
 
         // 1. Persist to DB
         const records: CreateNotificationInput[] = uniqueIds.map((userId) => ({
@@ -51,14 +72,20 @@ async function deliverNotifications(
     }
 }
 
+/** Organization of a job, so notifications never reach another tenant. */
+async function organizationOfJob(jobId: string): Promise<string | undefined> {
+    const job = await prisma.job.findUnique({ where: { id: jobId }, select: { organizationId: true } });
+    return job?.organizationId;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // RBAC HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Notify all administrators. */
-async function notifyAdmins(payload: NotificationPayload): Promise<void> {
+/** Notify all administrators, optionally limited to one organization. */
+async function notifyAdmins(payload: NotificationPayload, organizationId?: string): Promise<void> {
     const admins = await prisma.user.findMany({
-        where: { role: "administrator", isActive: true },
+        where: { role: "administrator", isActive: true, ...(organizationId ? { organizationId } : {}) },
         select: { id: true },
     });
     const ids = admins.map((u) => u.id);
@@ -68,12 +95,14 @@ async function notifyAdmins(payload: NotificationPayload): Promise<void> {
 /** Notify all hiring managers whose department matches. */
 async function notifyHiringManagersByDepartment(
     department: string,
-    payload: NotificationPayload
+    payload: NotificationPayload,
+    organizationId?: string
 ): Promise<void> {
     const hms = await prisma.user.findMany({
         where: {
             role: "hiring_manager",
             isActive: true,
+            ...(organizationId ? { organizationId } : {}),
             department: { equals: department, mode: "insensitive" },
         },
         select: { id: true },
@@ -138,6 +167,7 @@ export async function notifyNewCandidate(opts: {
     isReferral: boolean;
     referrerUserId?: string;
 }): Promise<void> {
+    const organizationId = await organizationOfJob(opts.jobId);
     const { candidateId, candidateName, jobId, jobTitle, jobDepartment, isReferral, referrerUserId } = opts;
     const category = isReferral ? NotificationCategory.REFERRAL : NotificationCategory.CANDIDATE;
     const title = isReferral
@@ -146,12 +176,20 @@ export async function notifyNewCandidate(opts: {
     const body = `Applied for ${jobTitle}`;
     const link = `/candidates/${candidateId}`;
 
-    const payload: NotificationPayload = { title, body, category, link, entityId: candidateId, entityType: "Candidate" };
+    const payload: NotificationPayload = {
+        title,
+        body,
+        category,
+        link,
+        entityId: candidateId,
+        entityType: "Candidate",
+        preference: "newApplications",
+    };
 
     // Admin gets all notifications
-    await notifyAdmins(payload);
+    await notifyAdmins(payload, organizationId);
     // Hiring managers of the same department
-    await notifyHiringManagersByDepartment(jobDepartment, payload);
+    await notifyHiringManagersByDepartment(jobDepartment, payload, organizationId);
     // Job team (recruiter + team members)
     await notifyJobTeam(jobId, payload);
 
@@ -178,6 +216,7 @@ export async function notifyCandidateStageChange(opts: {
     toStage: string;
     changedByName: string;
 }): Promise<void> {
+    const organizationId = await organizationOfJob(opts.jobId);
     const { candidateId, candidateName, jobId, jobTitle, jobDepartment, toStage, changedByName } = opts;
 
     let category = NotificationCategory.CANDIDATE;
@@ -187,10 +226,18 @@ export async function notifyCandidateStageChange(opts: {
     const title = `${candidateName} moved to ${formatStage(toStage)}`;
     const body = `For ${jobTitle} · by ${changedByName}`;
     const link = `/candidates/${candidateId}`;
-    const payload: NotificationPayload = { title, body, category, link, entityId: candidateId, entityType: "Candidate" };
+    const payload: NotificationPayload = {
+        title,
+        body,
+        category,
+        link,
+        entityId: candidateId,
+        entityType: "Candidate",
+        preference: "stageChanges",
+    };
 
-    await notifyAdmins(payload);
-    await notifyHiringManagersByDepartment(jobDepartment, payload);
+    await notifyAdmins(payload, organizationId);
+    await notifyHiringManagersByDepartment(jobDepartment, payload, organizationId);
     await notifyJobTeam(jobId, payload);
 }
 
@@ -217,6 +264,7 @@ export async function notifyJobCreated(opts: {
     jobDepartment: string;
     createdByName: string;
 }): Promise<void> {
+    const organizationId = await organizationOfJob(opts.jobId);
     const { jobId, jobTitle, jobDepartment, createdByName } = opts;
     const payload: NotificationPayload = {
         title: `New job posted: ${jobTitle}`,
@@ -228,9 +276,9 @@ export async function notifyJobCreated(opts: {
     };
 
     // Admins see all
-    await notifyAdmins(payload);
+    await notifyAdmins(payload, organizationId);
     // Hiring managers of that department
-    await notifyHiringManagersByDepartment(jobDepartment, payload);
+    await notifyHiringManagersByDepartment(jobDepartment, payload, organizationId);
 }
 
 export async function notifyJobUpdated(opts: {
@@ -240,6 +288,7 @@ export async function notifyJobUpdated(opts: {
     updatedByName: string;
     statusChange?: string;
 }): Promise<void> {
+    const organizationId = await organizationOfJob(opts.jobId);
     const { jobId, jobTitle, jobDepartment, updatedByName, statusChange } = opts;
     const body = statusChange
         ? `Status changed to ${statusChange} by ${updatedByName}`
@@ -253,8 +302,8 @@ export async function notifyJobUpdated(opts: {
         entityType: "Job",
     };
 
-    await notifyAdmins(payload);
-    await notifyHiringManagersByDepartment(jobDepartment, payload);
+    await notifyAdmins(payload, organizationId);
+    await notifyHiringManagersByDepartment(jobDepartment, payload, organizationId);
     await notifyJobTeam(jobId, payload);
 }
 
@@ -286,6 +335,7 @@ export async function notifyInterviewScheduled(opts: {
     panelistIds: string[];
     scheduledByName: string;
 }): Promise<void> {
+    const organizationId = await organizationOfJob(opts.jobId);
     const { interviewId, candidateName, jobTitle, jobDepartment, jobId, scheduledAt, interviewType, panelistIds, scheduledByName } = opts;
 
     const dateStr = scheduledAt.toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -298,8 +348,8 @@ export async function notifyInterviewScheduled(opts: {
         entityType: "Interview",
     };
 
-    await notifyAdmins(payload);
-    await notifyHiringManagersByDepartment(jobDepartment, payload);
+    await notifyAdmins(payload, organizationId);
+    await notifyHiringManagersByDepartment(jobDepartment, payload, organizationId);
 
     // Panelists get personal notification
     if (panelistIds.length) {
@@ -343,8 +393,15 @@ export async function notifyInterviewUpdated(opts: {
         entityType: "Interview",
     };
 
-    await notifyAdmins(payload);
-    await notifyHiringManagersByDepartment(jobDepartment, payload);
+    // Scope to the interview's organization so other tenants are never notified.
+    const interview = await prisma.interview.findUnique({
+        where: { id: interviewId },
+        select: { application: { select: { job: { select: { organizationId: true } } } } },
+    });
+    const organizationId = interview?.application.job.organizationId;
+    if (!organizationId) return;
+    await notifyAdmins(payload, organizationId);
+    await notifyHiringManagersByDepartment(jobDepartment, payload, organizationId);
 
     if (panelistIds.length) {
         await notifyUsers(panelistIds, {
@@ -397,15 +454,16 @@ export async function notifyUserOnboarded(opts: {
     newUserId: string;
     newUserName: string;
     newUserRole: string;
+    organizationId: string;
 }): Promise<void> {
-    const { newUserName, newUserRole } = opts;
+    const { newUserName, newUserRole, organizationId } = opts;
     await notifyAdmins({
         title: `New team member joined`,
         body: `${newUserName} accepted their invitation as ${newUserRole}`,
         category: NotificationCategory.USER_MANAGEMENT,
         link: `/settings`,
         entityType: "User",
-    });
+    }, organizationId);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

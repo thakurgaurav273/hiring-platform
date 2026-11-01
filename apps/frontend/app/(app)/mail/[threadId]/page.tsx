@@ -11,7 +11,7 @@ export default function MailReaderPage({ params }: { params: Promise<{ threadId:
   
   return (
     <Guard section="mail">
-      <div className="flex h-screen w-full flex-col">
+      <div className="flex h-[calc(100vh-4rem)] w-full flex-col">
         <MailReaderWrapper threadId={threadId} />
       </div>
     </Guard>

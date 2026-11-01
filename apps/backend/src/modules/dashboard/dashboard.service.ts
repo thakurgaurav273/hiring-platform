@@ -5,21 +5,28 @@ export const getDashboardData = async (user: any) => {
     const isRecruiterOrEmployee = user.role === Role.recruiter || user.role === Role.employee;
     const isManager = user.role === Role.hiring_manager;
 
-    // Build base where filters based on RBAC
-    const jobWhere: Prisma.JobWhereInput = isManager && user.department ? { department: user.department } : {};
-    
-    const candidateWhere: Prisma.CandidateWhereInput = isRecruiterOrEmployee 
-        ? { referredBy: user.id } 
-        : (isManager && user.department ? { applications: { some: { job: { department: user.department } } } } : {});
-
-    const applicationWhere: Prisma.ApplicationWhereInput = isRecruiterOrEmployee
-        ? { candidate: { referredBy: user.id } }
-        : (isManager && user.department ? { job: { department: user.department } } : {});
-        
-    const interviewWhere: Prisma.InterviewWhereInput = isRecruiterOrEmployee
-        ? { application: { candidate: { referredBy: user.id } } }
-        : (isManager && user.department ? { application: { job: { department: user.department } } } : {});
-
+    // Build base where filters based on RBAC, always within the user's organization.
+    const org = user.organizationId as string;
+    const deptScope = isManager && user.department ? { department: user.department } : {};
+    const jobWhere: Prisma.JobWhereInput = { organizationId: org, ...deptScope };
+    const candidateWhere: Prisma.CandidateWhereInput = {
+        organizationId: org,
+        ...(isRecruiterOrEmployee
+            ? { referredBy: user.id }
+            : isManager && user.department
+                ? { applications: { some: { job: { department: user.department } } } }
+                : {}),
+    };
+    const applicationWhere: Prisma.ApplicationWhereInput = {
+        job: { organizationId: org, ...deptScope },
+        ...(isRecruiterOrEmployee ? { candidate: { referredBy: user.id } } : {}),
+    };
+    const interviewWhere: Prisma.InterviewWhereInput = {
+        application: {
+            job: { organizationId: org, ...deptScope },
+            ...(isRecruiterOrEmployee ? { candidate: { referredBy: user.id } } : {}),
+        },
+    };
     const timelineWhere: Prisma.TimelineEventWhereInput = { actorId: user.id };
 
     // Common Metrics for all roles

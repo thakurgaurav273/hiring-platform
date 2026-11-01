@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Mail, Phone, MapPin } from "lucide-react";
 import { Avatar } from "@/components/app-shell";
 import type { Candidate, Job } from "@/lib/types";
+import { ApplicationSourceCard } from "@/features/candidates/ApplicationDetails";
 
 export function CandidateDetailRightRail({
   live,
@@ -49,6 +50,8 @@ export function CandidateDetailRightRail({
           <Row l="Applied">{live.appliedAt}</Row>
         </div>
       </div>
+
+      <ApplicationSourceCard applications={Array.isArray(live.applications) ? live.applications : []} />
 
     </aside>
   );

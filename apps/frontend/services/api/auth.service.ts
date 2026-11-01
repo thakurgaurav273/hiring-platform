@@ -1,6 +1,7 @@
 import { api } from "./axios";
 import { type LoginFormValues } from "@/lib/schemas/login.schema";
 import { type Role } from "@/constants/enums";
+import type { Workspace } from "@/lib/theme/types";
 
 export interface UserProfile {
   id: string;
@@ -21,6 +22,7 @@ export interface LoginResponse {
   message: string;
   data: {
     user: UserProfile;
+    workspace: Workspace;
     accessToken: string;
     refreshToken: string;
   };

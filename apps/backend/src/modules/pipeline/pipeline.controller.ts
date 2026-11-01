@@ -1,3 +1,4 @@
+import * as tenant from "../../common/tenant/tenant-guards";
 import { Request, Response, NextFunction } from "express";
 import { StatusCodes } from "http-status-codes";
 import * as pipelineService from "./pipeline.service";
@@ -115,6 +116,7 @@ export const getHistoryForApplication = async (
     next: NextFunction
 ) => {
     try {
+        await tenant.assertApplicationInOrg(req.params.applicationId, req.user!.organizationId);
         const history = await pipelineService.getHistoryForApplication(req.params.applicationId);
 
         return res.status(StatusCodes.OK).json({

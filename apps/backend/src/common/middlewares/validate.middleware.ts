@@ -12,9 +12,12 @@ const validate =
                 params: req.params,
             });
 
-            req.body = parsed.body;
-            req.query = parsed.query;
-            req.params = parsed.params;
+            // Only replace the parts the schema declares. Schemas without
+            // `params` used to wipe req.params, which broke routes such as
+            // POST /users/invitations/:token/accept.
+            if (parsed.body !== undefined) req.body = parsed.body;
+            if (parsed.query !== undefined) req.query = parsed.query;
+            if (parsed.params !== undefined) req.params = parsed.params;
 
             next();
         } catch (error) {
