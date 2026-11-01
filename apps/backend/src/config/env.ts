@@ -31,6 +31,9 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_SECURE: z.coerce.boolean().optional().default(false),
+  // Rate limiting is on unless explicitly disabled. In development it is off
+  // by default (see rateLimitEnabled below) so local work isn't throttled.
+  RATE_LIMIT_ENABLED: z.preprocess((v) => (v === '' ? undefined : v), z.enum(['true', 'false']).optional()),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(900000),
   RATE_LIMIT_MAX: z.coerce.number().default(100),
 });
@@ -45,4 +48,8 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data;
+
+/** Production defaults to on; development and test default to off. */
+export const rateLimitEnabled =
+  env.RATE_LIMIT_ENABLED !== undefined ? env.RATE_LIMIT_ENABLED === 'true' : env.NODE_ENV === 'production';
 export type EnvConfig = z.infer<typeof envSchema>;

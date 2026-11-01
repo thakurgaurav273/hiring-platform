@@ -1,10 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getJobs, getJobById, createJob, updateJob, deleteJob, getEligibleTeamMembers, inviteToHiringTeam, acceptHiringTeamInvitation } from "@/services/api/jobs.service";
 
-export const useJobs = (params?: { page?: number; limit?: number; search?: string; department?: string; status?: string; isReferral?: boolean }) => {
+export const useJobs = (
+  params?: { page?: number; limit?: number; search?: string; department?: string; status?: string; isReferral?: boolean },
+  options?: { enabled?: boolean }
+) => {
   return useQuery({
     queryKey: ["jobs", params],
     queryFn: () => getJobs(params),
+    enabled: options?.enabled ?? true,
   });
 };
 

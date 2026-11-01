@@ -57,6 +57,10 @@ api.interceptors.response.use(
       error.message ||
       "An unexpected error occurred.";
 
-    return Promise.reject(new Error(message));
+    // Keep the HTTP status so callers (and React Query's retry policy) can
+    // tell client errors from network/server failures.
+    const err = new Error(message) as Error & { status?: number };
+    err.status = error.response?.status;
+    return Promise.reject(err);
   }
 );

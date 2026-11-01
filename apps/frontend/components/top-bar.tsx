@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Bell, Settings as SettingsIcon, Sun, Moon, LogOut } from "lucide-react";
 import { useAppStore } from "@/store/app.store";
 import {
@@ -62,8 +63,10 @@ export function UserMenuContent({ router }: { router: ReturnType<typeof useRoute
 
 export function NotificationsMenu() {
   const router = useRouter();
+  // The list loads when the menu opens; the badge count loads on its own.
+  const [open, setOpen] = useState(false);
 
-  const { data, isLoading } = useNotifications();
+  const { data, isLoading } = useNotifications(1, { enabled: open });
   const { data: unreadCount = 0 } = useUnreadCount();
   const markReadMutation = useMarkRead();
   const markAllReadMutation = useMarkAllRead();
@@ -76,7 +79,7 @@ export function NotificationsMenu() {
   };
 
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button className="relative grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground">
           <Bell className="h-[17px] w-[17px]" />

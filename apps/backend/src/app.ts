@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import path from 'path';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
-import { env } from './config/env';
+import { env, rateLimitEnabled } from './config/env';
 import routes from './routes/index';
 import errorHandler from './common/middlewares/error-handler.middleware';
 import notFoundMiddleware from './common/middlewares/not-found.middleware';
@@ -17,11 +17,18 @@ app.use(helmet());
 app.use(cors());
 app.use(compression());
 
-const limiter = rateLimit({
-  windowMs: env.RATE_LIMIT_WINDOW_MS,
-  limit: env.RATE_LIMIT_MAX,
-});
-app.use('/api', limiter);
+if (rateLimitEnabled) {
+  app.use(
+    '/api',
+    rateLimit({
+      windowMs: env.RATE_LIMIT_WINDOW_MS,
+      limit: env.RATE_LIMIT_MAX,
+      standardHeaders: 'draft-7',
+      legacyHeaders: false,
+      message: { success: false, message: 'Too many requests. Please try again shortly.' },
+    }),
+  );
+}
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));

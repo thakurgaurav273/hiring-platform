@@ -14,14 +14,13 @@ export const NOTIFICATION_KEYS = {
 };
 
 /** Paginated list of notifications for the current user */
-export function useNotifications(page = 1) {
+export function useNotifications(page = 1, options?: { enabled?: boolean }) {
   const isAuthenticated = useAppStore((s) => s.isAuthenticated);
 
   return useQuery({
     queryKey: NOTIFICATION_KEYS.list(page),
     queryFn: () => getNotifications({ page, limit: 30 }),
-    enabled: isAuthenticated,
-    refetchOnWindowFocus: true,
+    enabled: isAuthenticated && (options?.enabled ?? true),
     staleTime: 30_000, // 30 seconds
     select: (data) => data.data,
   });

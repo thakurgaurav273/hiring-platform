@@ -19,7 +19,9 @@ export function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const logout = useAppStore((s) => s.logout);
   const user = useAppStore((s) => s.user)();
   const { brand } = useTheme();
-  const { data: jobsData } = useJobs(role === ROLE_KEYS.EMPLOYEE ? { limit: 1 } : undefined);
+  // Only employees' navigation depends on whether any jobs exist.
+  const isEmployee = role === ROLE_KEYS.EMPLOYEE;
+  const { data: jobsData } = useJobs({ limit: 1 }, { enabled: isEmployee });
   const hasJobs = role !== ROLE_KEYS.EMPLOYEE || (jobsData?.data?.jobs && jobsData.data.jobs.length > 0);
   const nav = NAV_ORDER_BY_ROLE[role]
     .map((s) => ALL_NAV.find((n) => n.section === s))
