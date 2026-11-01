@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment files — never commit secrets
+.env
+.env.local
+.env.*.localecho 
+
+# Build output
+dist/
+build/
+
+# Uploaded files
+uploads/
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# OS
+.DS_Store.env
