@@ -4,7 +4,10 @@ import { PageHeader, Avatar } from "@/components/app-shell";
 import { useAppStore } from "@/store/app.store";
 import Link from "next/link";
 import { Guard } from "@/components/access-restricted";
-import { Search as SearchIcon, Briefcase, MapPin, Clock, UserPlus, X } from "lucide-react";
+import { Search as SearchIcon, Briefcase, MapPin, Clock, UserPlus } from "lucide-react";
+import { Filters, useResolvedFilters, type FilterValues } from "@/components/filters";
+import { REFERRAL_JOB_FILTERS } from "@/constants/filters.config";
+import { Input } from "@/components/ui/input";
 import { useMemo, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useRouter } from "next/navigation";
@@ -26,7 +29,7 @@ function ReferralsDashboard() {
   const user = useAppStore(s => s.authUser);
 
   const { data: jobsData, isLoading: jobsLoading } = useJobs({ status: JobStatus.OPEN, isReferral: true });
-  const openJobs = jobsData?.data.jobs || [];
+  const openJobs = useMemo(() => jobsData?.data.jobs || [], [jobsData]);
 
   const [page, setPage] = useState(1);
   const { data: candidatesData, isLoading: candidatesLoading } = useCandidates({ referredBy: user?.id, page, limit: 15 });
@@ -36,17 +39,22 @@ function ReferralsDashboard() {
 
   const [ui, setUi] = useState({
     q: "",
-    dept: "All",
-    loc: "All",
+    filters: {} as FilterValues,
   });
-
-  const departments = useMemo(() => ["All", ...Array.from(new Set(openJobs.map((j) => j.department)))], [openJobs]);
-  const locations = useMemo(() => ["All", ...Array.from(new Set(openJobs.map((j) => j.location).filter(Boolean)))], [openJobs]);
-
+  const filterData = useMemo(
+    () => ({
+      departments: openJobs.map((j) => j.department),
+      locations: openJobs.map((j) => j.location).filter(Boolean) as string[],
+    }),
+    [openJobs]
+  );
+  const { values: filters } = useResolvedFilters(REFERRAL_JOB_FILTERS, filterData, ui.filters);
+  const deptF = filters.department ?? [];
+  const locF = filters.location ?? [];
   const results = openJobs.filter((j) =>
     (!ui.q || j.title.toLowerCase().includes(ui.q.toLowerCase()) || j.description.toLowerCase().includes(ui.q.toLowerCase())) &&
-    (ui.dept === "All" || j.department === ui.dept) &&
-    (ui.loc === "All" || j.location === ui.loc)
+    (deptF.length === 0 || deptF.includes(j.department)) &&
+    (locF.length === 0 || (!!j.location && locF.includes(j.location)))
   );
 
   return (
@@ -74,24 +82,13 @@ function ReferralsDashboard() {
             <div className="px-4 pt-6 md:px-8">
               <div className="surface-card p-4">
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="relative flex-1 min-w-[240px]">
-                    <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <input value={ui.q} onChange={(e) => setUi(p => ({ ...p, q: e.target.value }))} placeholder="Search roles, skills, teams…" className="h-10 w-full rounded-lg border border-border bg-surface pl-9 pr-3 text-[13px] outline-none focus:border-ring focus:ring-2 focus:ring-ring/20" />
+                  <div className="relative min-w-[240px] flex-1">
+                    <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input type="search" value={ui.q} onChange={(e) => setUi(p => ({ ...p, q: e.target.value }))} placeholder="Search roles, skills, teams…" aria-label="Search open roles" className="pl-9" />
                   </div>
-                <select value={ui.dept} onChange={(e) => setUi(p => ({ ...p, dept: e.target.value }))} className="h-10 rounded-lg border border-border bg-surface px-3 text-[13px]">
-                  {departments.map((d) => <option key={d}>{d as string}</option>)}
-                </select>
-                <select value={ui.loc} onChange={(e) => setUi(p => ({ ...p, loc: e.target.value }))} className="h-10 rounded-lg border border-border bg-surface px-3 text-[13px]">
-                  {locations.map((l) => <option key={l}>{l as string}</option>)}
-                </select>
-                {(ui.q || ui.dept !== "All" || ui.loc !== "All") && (
-                  <button onClick={() => { setUi(p => ({ ...p, q: "", dept: "All", loc: "All" })); }} className="inline-flex h-10 items-center gap-1 rounded-lg px-2 text-[12px] font-medium text-muted-foreground hover:text-foreground">
-                    <X className="h-3 w-3" /> Clear
-                  </button>
-                )}
+                  <Filters config={REFERRAL_JOB_FILTERS} data={filterData} value={filters} onChange={(v) => setUi(p => ({ ...p, filters: v }))} />
+                </div>
               </div>
-            </div>
-
             <div className="mt-4 text-[12px] text-muted-foreground">Showing {results.length} of {openJobs.length} open roles</div>
             </div>
 
