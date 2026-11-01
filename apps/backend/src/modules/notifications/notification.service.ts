@@ -55,10 +55,10 @@ async function deliverNotifications(
 // RBAC HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Notify all administrators. */
-async function notifyAdmins(payload: NotificationPayload): Promise<void> {
+/** Notify all administrators, optionally limited to one organization. */
+async function notifyAdmins(payload: NotificationPayload, organizationId?: string): Promise<void> {
     const admins = await prisma.user.findMany({
-        where: { role: "administrator", isActive: true },
+        where: { role: "administrator", isActive: true, ...(organizationId ? { organizationId } : {}) },
         select: { id: true },
     });
     const ids = admins.map((u) => u.id);
@@ -397,15 +397,16 @@ export async function notifyUserOnboarded(opts: {
     newUserId: string;
     newUserName: string;
     newUserRole: string;
+    organizationId: string;
 }): Promise<void> {
-    const { newUserName, newUserRole } = opts;
+    const { newUserName, newUserRole, organizationId } = opts;
     await notifyAdmins({
         title: `New team member joined`,
         body: `${newUserName} accepted their invitation as ${newUserRole}`,
         category: NotificationCategory.USER_MANAGEMENT,
         link: `/settings`,
         entityType: "User",
-    });
+    }, organizationId);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

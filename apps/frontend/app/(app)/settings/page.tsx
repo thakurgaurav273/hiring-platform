@@ -3,20 +3,23 @@
 import { PageHeader, Avatar } from "@/components/app-shell";
 import { useAppStore } from "@/store/app.store";
 import { Guard } from "@/components/access-restricted";
-import { Users, Bell, Plus, MoreHorizontal, User, Sun, Loader2 } from "lucide-react";
+import { Users, Bell, Plus, MoreHorizontal, User, Sun, Loader2, Palette, Info } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { useState } from "react";
-import { TEAM } from "@/constants/settings.constants";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ProfileSection,
   ThemeSection,
   NotificationsSection,
+  AboutSection,
   SettingsCard,
   SettingsField,
 } from "@/features/settings/SettingsSections";
+import { BrandingSettings } from "@/features/settings/branding/BrandingSettings";
+import { useTheme } from "@/components/theme-provider";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usersService } from "@/services/api/users.service";
 import { useForm } from "react-hook-form";
@@ -28,19 +31,30 @@ const inviteSchema = z.object({
   role: z.enum(["administrator", "hiring_manager", "recruiter", "employee"]),
 });
 
+const TABS = ["profile", "appearance", "notifications", "branding", "users", "about"] as const;
+type SettingsTab = (typeof TABS)[number];
+
 export default function SettingsPage() {
   return (
     <Guard section="settings">
-      <SettingsInner />
+      {/* useSearchParams (for ?tab=) requires a Suspense boundary */}
+      <Suspense fallback={null}>
+        <SettingsInner />
+      </Suspense>
     </Guard>
   );
 }
 
 function SettingsInner() {
   const can = useAppStore((s) => s.can);
+  const canManageBranding = useAppStore((s) => !!s.workspace?.permissions.canManageBranding);
+  const { brand } = useTheme();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get("tab") as SettingsTab | null;
   const [ui, setUi] = useState({
     inviteOpen: false,
-    tab: "theme" as "theme" | "notifications" | "users" | "profile",
+    tab: (requestedTab && TABS.includes(requestedTab) ? requestedTab : "appearance") as SettingsTab,
     userToDelete: null as string | null,
     userToUpdateRole: null as { id: string, role: string } | null,
   });
@@ -99,11 +113,18 @@ function SettingsInner() {
   };
 
   const tabs = [
-    { v: "profile" as const, l: "Profile",       i: User,  show: true },
-    { v: "theme" as const,   l: "Theme",          i: Sun,   show: true },
-    { v: "notifications" as const, l: "Notifications", i: Bell, show: true },
-    { v: "users" as const,   l: "Users",          i: Users, show: can("users") },
+    { v: "profile" as const,       l: "Profile",                i: User,    show: true },
+    { v: "appearance" as const,    l: "My appearance",          i: Sun,     show: true },
+    { v: "notifications" as const, l: "Notifications",          i: Bell,    show: true },
+    { v: "branding" as const,      l: "Branding & Appearance",  i: Palette, show: canManageBranding },
+    { v: "users" as const,         l: "Users",                  i: Users,   show: can("users") },
+    { v: "about" as const,         l: "About",                  i: Info,    show: true },
   ].filter((t) => t.show);
+
+  const selectTab = (tab: SettingsTab) => {
+    setUi(p => ({ ...p, tab }));
+    router.replace(`/settings?tab=${tab}`, { scroll: false });
+  };
 
   return (
     <div>
@@ -111,16 +132,18 @@ function SettingsInner() {
 
       {/* Tab bar */}
       <div className="border-b border-border bg-background">
-        <div className="mx-auto flex max-w-4xl justify-center px-4 py-5 md:px-8">
-          <div className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-2 p-1 shadow-xs">
+        <div className="mx-auto flex max-w-5xl justify-center overflow-x-auto px-4 py-5 md:px-8">
+          <div role="tablist" aria-label="Settings sections" className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-surface-2 p-1 shadow-xs">
             {tabs.map((t) => {
               const active = ui.tab === t.v;
               return (
                 <button
                   key={t.v}
-                  onClick={() => setUi(p => ({ ...p, tab: t.v }))}
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => selectTab(t.v)}
                   className={
-                    "inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-[12.5px] font-medium transition " +
+                    "inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[12.5px] font-medium transition " +
                     (active ? "bg-surface text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground")
                   }
                 >
@@ -133,10 +156,12 @@ function SettingsInner() {
       </div>
 
       {/* Tab content */}
-      <div className="mx-auto max-w-3xl pt-2">
+      <div className={`mx-auto pt-2 ${ui.tab === "branding" ? "max-w-6xl px-4 pb-10 md:px-8" : "max-w-3xl"}`}>
         {ui.tab === "profile"       && <ProfileSection />}
-        {ui.tab === "theme"         && <ThemeSection />}
+        {ui.tab === "appearance"    && <ThemeSection />}
         {ui.tab === "notifications" && <NotificationsSection />}
+        {ui.tab === "branding"      && <BrandingSettings />}
+        {ui.tab === "about"         && <AboutSection />}
 
         {ui.tab === "users" && can("users") && (
           <SettingsCard
@@ -152,11 +177,11 @@ function SettingsInner() {
                   <form onSubmit={handleSubmit(onSubmit)}>
                     <DialogHeader>
                       <DialogTitle>Invite teammate</DialogTitle>
-                      <DialogDescription>They&apos;ll receive an email invitation to join your Grovyn workspace.</DialogDescription>
+                      <DialogDescription>They&apos;ll receive an email invitation to join {brand.name}.</DialogDescription>
                     </DialogHeader>
                     <SettingsField label="Email">
                       <input {...register("email")} placeholder="name@company.com" className="input" />
-                      {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+                      {errors.email && <p className="text-destructive text-xs mt-1">{errors.email.message}</p>}
                     </SettingsField>
                     <SettingsField label="Role">
                       <select {...register("role")} className="input">
@@ -165,7 +190,7 @@ function SettingsInner() {
                         <option value="recruiter">Recruiter</option>
                         <option value="employee">Employee</option>
                       </select>
-                      {errors.role && <p className="text-red-500 text-xs mt-1">{errors.role.message}</p>}
+                      {errors.role && <p className="text-destructive text-xs mt-1">{errors.role.message}</p>}
                     </SettingsField>
                     <DialogFooter>
                       <button type="button" onClick={() => setUi(p => ({ ...p, inviteOpen: false }))} className="h-9 rounded-md border border-border bg-surface px-3 text-[13px] font-medium hover:bg-secondary">Cancel</button>
@@ -265,7 +290,6 @@ function SettingsInner() {
         )}
       </div>
 
-      <style>{`.input { height: 40px; width: 100%; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-surface); padding: 0 12px; font-size: 13px; outline: none; }`}</style>
     </div>
   );
 }

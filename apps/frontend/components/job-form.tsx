@@ -172,7 +172,6 @@ export function JobForm({ mode, job }: { mode: "create" | "edit"; job?: Job | an
         </div>
       </div>
 
-      <style>{`.input { height: 40px; width: 100%; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-surface); padding: 0 12px; font-size: 13px; outline: none; } .input:focus { border-color: var(--color-ring); }`}</style>
     </div>
   );
 }

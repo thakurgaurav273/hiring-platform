@@ -133,27 +133,121 @@ enum NotificationCategory {
   SYSTEM
 }
 
+// Branding & theming. Keep in sync with apps/frontend/lib/theme/presets.ts
+enum ThemePreset {
+  modern_enterprise
+  corporate
+  minimal
+  warm_professional
+  midnight
+}
+
+enum AppearanceMode {
+  light
+  dark
+  system
+}
+
+enum SidebarStyle {
+  solid
+  subtle
+  transparent
+}
+
+enum FontPreset {
+  default
+  modern
+  classic
+}
+
+enum RadiusPreset {
+  compact
+  comfortable
+  rounded
+}
+
+// ============================================================
+// ORGANIZATIONS (TENANTS) & BRANDING
+// ============================================================
+// Platform (Robin Labs) branding is NOT stored here. It is static platform
+// configuration, so no tenant-scoped write can ever alter it.
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  ownerId   String?  @unique
+  owner     User?    @relation("OrganizationOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members     User[]                @relation("OrganizationMembers")
+  invitations UserInvitation[]
+  branding    OrganizationBranding?
+
+  @@map("organizations")
+}
+
+model OrganizationBranding {
+  id                String         @id @default(uuid())
+  organizationId    String         @unique
+  organization      Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  // null = fall back to Organization.name
+  displayName       String?
+  // Storage keys. Public URLs are resolved at read time (S3 URLs are presigned).
+  logoKey           String?
+  faviconKey        String?
+  themePreset       ThemePreset    @default(warm_professional)
+  // null = use the preset's colours
+  primaryColor      String?
+  secondaryColor    String?
+  defaultAppearance AppearanceMode @default(system)
+  sidebarStyle      SidebarStyle   @default(solid)
+  fontPreset        FontPreset     @default(default)
+  radiusPreset      RadiusPreset   @default(comfortable)
+  updatedById       String?
+  updatedBy         User?          @relation("BrandingUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@map("organization_branding")
+}
+
+model UserPreference {
+  id         String          @id @default(uuid())
+  userId     String          @unique
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // null = follow the organization's default appearance
+  appearance AppearanceMode?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@map("user_preferences")
+}
+
 // ============================================================
 // AUTH & USERS
 // ============================================================
 
 model User {
-  id           String  @id @default(uuid())
-  email        String  @unique
-  password     String
-  firstName    String
-  lastName     String
-  role         Role    @default(employee)
-  isActive     Boolean @default(true)
-  avatarUrl    String?
-  department   String?
-  title        String?
-  phone        String?
-  address      String?
+  id                      String       @id @default(uuid())
+  organizationId          String
+  organization            Organization @relation("OrganizationMembers", fields: [organizationId], references: [id], onDelete: Restrict)
+  email                   String       @unique
+  password                String
+  firstName               String
+  lastName                String
+  role                    Role         @default(employee)
+  isActive                Boolean      @default(true)
+  avatarUrl               String?
+  department              String?
+  title                   String?
+  phone                   String?
+  address                 String?
   notificationPreferences Json?
-  invitedById  String?
-  invitedBy    User?   @relation("UserInvites", fields: [invitedById], references: [id])
-  invitedUsers User[]  @relation("UserInvites")
+  invitedById             String?
+  invitedBy               User?        @relation("UserInvites", fields: [invitedById], references: [id])
+  invitedUsers            User[]       @relation("UserInvites")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -179,7 +273,12 @@ model User {
   notifications   Notification[]
   fcmTokens       FcmToken[]
 
+  ownedOrganization Organization?          @relation("OrganizationOwner")
+  brandingUpdates   OrganizationBranding[] @relation("BrandingUpdatedBy")
+  preference        UserPreference?
+
   @@index([role])
+  @@index([organizationId])
   @@map("users")
 }
 
@@ -209,19 +308,22 @@ model PasswordResetToken {
 }
 
 model UserInvitation {
-  id          String           @id @default(uuid())
-  email       String           @unique
-  role        Role
-  token       String           @unique
-  expiresAt   DateTime
-  status      InvitationStatus @default(PENDING)
-  invitedById String
-  invitedBy   User             @relation(fields: [invitedById], references: [id])
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  id             String           @id @default(uuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String           @unique
+  role           Role
+  token          String           @unique
+  expiresAt      DateTime
+  status         InvitationStatus @default(PENDING)
+  invitedById    String
+  invitedBy      User             @relation(fields: [invitedById], references: [id])
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   @@index([email])
   @@index([token])
+  @@index([organizationId])
   @@map("user_invitations")
 }
 
@@ -653,9 +755,9 @@ model Notification {
   body       String
   category   NotificationCategory
   isRead     Boolean              @default(false)
-  link       String?              // frontend route to navigate to on click
-  entityId   String?              // candidateId, jobId, interviewId, etc.
-  entityType String?              // "Candidate", "Job", "Interview", "Mail", etc.
+  link       String? // frontend route to navigate to on click
+  entityId   String? // candidateId, jobId, interviewId, etc.
+  entityType String? // "Candidate", "Job", "Interview", "Mail", etc.
   createdAt  DateTime             @default(now())
 
   @@index([userId])

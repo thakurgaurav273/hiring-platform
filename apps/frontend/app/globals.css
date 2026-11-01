@@ -4,22 +4,42 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Design tokens
+ * ─────────────
+ * CSS custom properties are the single source of truth for the theme.
+ * The values in :root / .dark below are the Robin Labs default theme
+ * (the DEFAULT_PRESET_ID preset in lib/theme/presets.ts), so the first paint
+ * is correct even before any script runs. Organization themes are generated
+ * by lib/theme/engine.ts and injected at runtime with higher specificity
+ * (html:root).
+ *
+ * Do not edit the token blocks by hand: change the preset, then run
+ * `npm run theme:sync`. lib/theme/__tests__/engine.test.ts fails if these
+ * defaults drift from the engine's output.
+ */
 @theme inline {
-  --font-sans: var(--font-sans);
-  --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-sans: var(--app-font-sans);
+  --font-display: var(--app-font-display);
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
 
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 10px;
-  --radius-xl: 14px;
-  --radius-2xl: 18px;
+  /* Radii scale from the organization's corner-radius preset (--radius). */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-control: calc(var(--radius) - 2px);
+  --radius-card: calc(var(--radius) + 2px);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-text-primary: var(--foreground);
+  --color-text-secondary: var(--muted-foreground);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
-  --color-surface-dark: var(--surface-dark);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -27,6 +47,8 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-hover: var(--primary-hover);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-secondary-foreground: var(--brand-secondary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -44,118 +66,125 @@
   --color-ring: var(--ring);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
   --color-sidebar-accent: var(--sidebar-accent);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-active-foreground: var(--sidebar-active-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-
-  --shadow-xs: 0 1px 0 0 rgb(17 24 39 / 0.04);
-  --shadow-sm: 0 1px 2px 0 rgb(17 24 39 / 0.05);
-  --shadow-md: 0 4px 12px -2px rgb(17 24 39 / 0.06), 0 2px 4px -2px rgb(17 24 39 / 0.04);
-  --shadow-lg: 0 12px 32px -12px rgb(17 24 39 / 0.10), 0 4px 8px -4px rgb(17 24 39 / 0.04);
-  --shadow-elevated: 0 24px 60px -20px rgb(17 24 39 / 0.18);
-  --font-heading: var(--font-sans);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-chart-1: var(--chart-1);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --shadow-xs: 0 1px 0 0 rgb(15 23 42 / 0.04);
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 0.05);
+  --shadow-md: 0 4px 12px -2px rgb(15 23 42 / 0.06), 0 2px 4px -2px rgb(15 23 42 / 0.04);
+  --shadow-lg: 0 12px 32px -12px rgb(15 23 42 / 0.10), 0 4px 8px -4px rgb(15 23 42 / 0.04);
+  --shadow-elevated: 0 24px 60px -20px rgb(15 23 42 / 0.18);
+  --font-heading: var(--app-font-display);
 }
 
+/* Robin Labs default theme: Warm Professional (light) */
 :root {
-  /* Grovyn brand */
+  --radius: 10px;
+  --app-font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --app-font-display: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 
+  --background: #FAF9F6;
+  --foreground: #222222;
   --surface: #FFFFFF;
-  --surface-2: #F3F5F4;
-  --surface-dark: #07110F;
-
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --primary-hover: #14B07D;
-
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-
-  --destructive: oklch(0.577 0.245 27.325);
+  --surface-2: #F3F1ED;
+  --card: #FFFFFF;
+  --card-foreground: #222222;
+  --popover: #FFFFFF;
+  --popover-foreground: #222222;
+  --muted: #F3F1ED;
+  --muted-foreground: #737373;
+  --secondary: #F3F1ED;
+  --secondary-foreground: #222222;
+  --accent: #F3F1ED;
+  --accent-foreground: #222222;
+  --border: #EAE7E1;
+  --border-strong: #D9D4CC;
+  --input: #EAE7E1;
+  --primary: #A8320C;
+  --primary-hover: #8A2908;
+  --primary-foreground: #FFFFFF;
+  --ring: #A8320C;
+  --brand-secondary: #57534E;
+  --brand-secondary-foreground: #FFFFFF;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #222222;
+  --sidebar-muted: #737373;
+  --sidebar-accent: #F3F1ED;
+  --sidebar-accent-foreground: #222222;
+  --sidebar-active-foreground: #A8320C;
+  --sidebar-border: #EAE7E1;
+  --sidebar-ring: #A8320C;
+  --sidebar-primary: #A8320C;
+  --sidebar-primary-foreground: #FFFFFF;
+  --chart-1: #A8320C;
+  --chart-2: #57534E;
+  --chart-3: #CB846D;
+  --chart-4: #9A9895;
+  --chart-5: #80432D;
+  --destructive: #DC2626;
   --destructive-foreground: #FFFFFF;
-  --success: #19C38C;
-  --warning: #D97706;
+  --success: #15803D;
+  --warning: #B45309;
   --info: #2563EB;
-
-  --border: oklch(0.922 0 0);
-  --border-strong: #D1D5DB;
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
 }
 
+/* Robin Labs default theme: Warm Professional (dark) */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --surface: #0B1815;
-  --surface-2: #0F201C;
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --primary-hover: #14B07D;
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --border-strong: rgb(255 255 255 / 0.14);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
+  color-scheme: dark;
+  --background: #121010;
+  --foreground: #F5F3F0;
+  --surface: #1A1715;
+  --surface-2: #262220;
+  --card: #1A1715;
+  --card-foreground: #F5F3F0;
+  --popover: #1A1715;
+  --popover-foreground: #F5F3F0;
+  --muted: #262220;
+  --muted-foreground: #A8A29E;
+  --secondary: #262220;
+  --secondary-foreground: #F5F3F0;
+  --accent: #262220;
+  --accent-foreground: #F5F3F0;
+  --border: #2E2A27;
+  --border-strong: #44403C;
+  --input: #2E2A27;
+  --primary: #E8825F;
+  --primary-hover: #F09B7C;
+  --primary-foreground: #0F172A;
+  --ring: #E8825F;
+  --brand-secondary: #C9BFB5;
+  --brand-secondary-foreground: #0F172A;
+  --sidebar: #1A1715;
+  --sidebar-foreground: #F5F3F0;
+  --sidebar-muted: #A8A29E;
+  --sidebar-accent: #262220;
+  --sidebar-accent-foreground: #F5F3F0;
+  --sidebar-active-foreground: #E8825F;
+  --sidebar-border: #2E2A27;
+  --sidebar-ring: #E8825F;
+  --sidebar-primary: #E8825F;
+  --sidebar-primary-foreground: #0F172A;
+  --chart-1: #E8825F;
+  --chart-2: #C9BFB5;
+  --chart-3: #965741;
+  --chart-4: #837C75;
+  --chart-5: #D9A18A;
+  --destructive: #F87171;
+  --destructive-foreground: #0F172A;
+  --success: #4ADE80;
+  --warning: #FBBF24;
+  --info: #60A5FA;
 }
 
 @layer base {
@@ -183,6 +212,38 @@
   }
 }
 
+@layer components {
+  /* Shared text input / select used by forms across the app. */
+  .input {
+    height: 40px;
+    width: 100%;
+    border-radius: var(--radius-control);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-foreground);
+    padding: 0 12px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .input::placeholder {
+    color: var(--color-muted-foreground);
+  }
+  .input:focus {
+    border-color: var(--color-ring);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-ring) 18%, transparent);
+  }
+  .input:disabled {
+    background: var(--color-surface-2);
+    color: var(--color-muted-foreground);
+    cursor: not-allowed;
+  }
+  textarea.input {
+    height: auto;
+    padding: 8px 12px;
+  }
+}
+
 @utility hairline {
   box-shadow: inset 0 0 0 1px var(--color-border);
 }
@@ -190,15 +251,26 @@
 @utility surface-card {
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-card);
 }
 
-/* Auth dark panel background */
-@utility auth-dark {
-  background-color: #07110F;
-  background-image:
-    radial-gradient(1000px 600px at 15% 20%, rgba(25, 195, 140, 0.18), transparent 60%),
-    radial-gradient(800px 500px at 85% 90%, rgba(25, 195, 140, 0.10), transparent 65%);
+/*
+ * Status tones: badges and soft fills for categorical states (pipeline stages,
+ * job status, recommendations…). Set --tone to any colour; text, fill and
+ * border are derived from it and the current surface, so they adapt to light
+ * and dark themes. Example: class="tone-badge [--tone:var(--color-success)]"
+ */
+@utility tone-badge {
+  color: color-mix(in oklab, var(--tone, var(--color-muted-foreground)) 72%, var(--color-foreground));
+  background-color: color-mix(in oklab, var(--tone, var(--color-muted-foreground)) 12%, var(--color-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tone, var(--color-muted-foreground)) 26%, var(--color-surface));
+}
+@utility tone-soft {
+  color: color-mix(in oklab, var(--tone, var(--color-muted-foreground)) 80%, var(--color-foreground));
+  background-color: color-mix(in oklab, var(--tone, var(--color-muted-foreground)) 12%, var(--color-surface));
+}
+@utility tone-text {
+  color: color-mix(in oklab, var(--tone, var(--color-muted-foreground)) 85%, var(--color-foreground));
 }
 
 @keyframes gt-fade-in {

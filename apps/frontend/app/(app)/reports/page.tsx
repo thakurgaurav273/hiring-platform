@@ -64,7 +64,7 @@ function ReportsInner() {
       name: s.stage,
       value: s.value,
       conv: s.conv,
-      color: FUNNEL_BASE_COLORS[i] ?? "#4F6EF7",
+      color: FUNNEL_BASE_COLORS[i] ?? FUNNEL_BASE_COLORS[0],
     })
   );
 
@@ -178,7 +178,7 @@ function ReportsInner() {
                               height: `${pct}%`,
                               minHeight: "4px",
                               borderRadius: "4px 4px 0 0",
-                              backgroundColor: "#19C38C",
+                              backgroundColor: "var(--color-chart-1)",
                               transition: "opacity 0.15s",
                             }}
                             title={`${d.department}: ${d.count}`}

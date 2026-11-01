@@ -1,7 +1,7 @@
 // Settings page constants — mock data and configuration for the settings section.
 // Team list moves to the backend once the User Management API is available.
 
-import type { ThemeMode } from "@/store/app.store";
+import type { AppearanceMode } from "@/lib/theme/types";
 import { Sun, Moon, MonitorSmartphone } from "lucide-react";
 import type { ElementType } from "react";
 
@@ -25,7 +25,7 @@ export const TEAM: TeamMember[] = [
 // ─── Theme ────────────────────────────────────────────────────────────────────
 
 export type ThemeOption = {
-  v: ThemeMode;
+  v: AppearanceMode;
   l: string;
   d: string;
   i: ElementType;
@@ -34,20 +34,20 @@ export type ThemeOption = {
 export const THEME_OPTIONS: ThemeOption[] = [
   {
     v: "light",
-    l: "Light Mode",
-    d: "Bright, clean interface for daylight use. Default.",
+    l: "Light",
+    d: "Bright, clean interface for daylight use.",
     i: Sun,
   },
   {
     v: "dark",
-    l: "Dark Mode",
+    l: "Dark",
     d: "Comfortable low-light experience with reduced glare.",
     i: Moon,
   },
   {
     v: "system",
-    l: "System Default",
-    d: "Automatically follows your operating system preferences.",
+    l: "System",
+    d: "Follows your operating system setting.",
     i: MonitorSmartphone,
   },
 ];

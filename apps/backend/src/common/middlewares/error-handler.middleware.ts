@@ -3,6 +3,7 @@ import { StatusCodes } from 'http-status-codes';
 import { AppError } from '../errors/app-error';
 import logger from '../../shared/logger/logger';
 import jwt from 'jsonwebtoken';
+import multer from 'multer';
 
 const errorHandler = (err: any, req: Request, res: Response, _next: NextFunction) => {
   logger.error(`${err.name}: ${err.message}`);
@@ -11,6 +12,16 @@ const errorHandler = (err: any, req: Request, res: Response, _next: NextFunction
     return res.status(err.statusCode).json({
       success: false,
       message: err.message,
+    });
+  }
+
+  // Upload limits (file too large, too many files, unexpected field) are client errors.
+  if (err instanceof multer.MulterError) {
+    const message =
+      err.code === 'LIMIT_FILE_SIZE' ? 'File is too large' : `Upload rejected: ${err.message}`;
+    return res.status(StatusCodes.BAD_REQUEST).json({
+      success: false,
+      message,
     });
   }
 

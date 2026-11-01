@@ -18,6 +18,7 @@ const findAllUsers = async (params: {
             lastName: true,
             role: true,
             isActive: true,
+            organizationId: true,
             avatarUrl: true,
             department: true,
             title: true,
@@ -45,6 +46,7 @@ const findUserById = async (id: string) => {
             lastName: true,
             role: true,
             isActive: true,
+            organizationId: true,
             avatarUrl: true,
             department: true,
             title: true,
@@ -110,9 +112,17 @@ const createUser = async (data: Prisma.UserUncheckedCreateInput) => {
     return prisma.user.create({ data });
 };
 
-const countActiveAdmins = async () => {
+const countActiveAdmins = async (organizationId: string) => {
     return prisma.user.count({
-        where: { role: "administrator", isActive: true },
+        where: { organizationId, role: "administrator", isActive: true },
+    });
+};
+
+const createDefaultPreference = async (userId: string) => {
+    return prisma.userPreference.upsert({
+        where: { userId },
+        update: {},
+        create: { userId },
     });
 };
 
@@ -139,6 +149,7 @@ const usersRepository = {
     updateInvitationStatus,
     createUser,
     countActiveAdmins,
+    createDefaultPreference,
     revokeUserRefreshTokens,
     logActivity,
 };

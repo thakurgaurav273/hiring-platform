@@ -239,7 +239,7 @@ export default function ReferralFormPage({ searchParams }: { searchParams: Promi
             </form>
           ) : (
             <div className="py-12 text-center">
-              <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-[oklch(0.94_0.05_155)] text-[oklch(0.4_0.12_155)]">
+              <div className="mx-auto grid h-16 w-16 place-items-center rounded-full tone-soft [--tone:var(--color-success)]">
                 <CheckCircle2 className="h-8 w-8" />
               </div>
               <h2 className="mt-5 font-display text-[22px] font-semibold tracking-tight">Referral submitted</h2>
@@ -254,7 +254,6 @@ export default function ReferralFormPage({ searchParams }: { searchParams: Promi
           )}
         </div>
       </div>
-      <style>{`.input { height: 40px; width: 100%; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-surface); padding: 0 12px; font-size: 13px; outline: none; } .input:focus { border-color: var(--color-ring); }`}</style>
     </Guard>
   );
 }

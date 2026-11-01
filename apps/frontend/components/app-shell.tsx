@@ -7,7 +7,10 @@ import { initials, avatarGradient } from "@/lib/mock-data";
 import { DropdownMenu, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
-import { GrovynMark, SidebarContent } from "./sidebar";
+import { SidebarContent } from "./sidebar";
+import { WorkspaceMark } from "./brand";
+import { useTheme } from "./theme-provider";
+import { useWorkspaceSync } from "@/hooks/useWorkspace";
 import { UserMenuButton, UserMenuContent, NotificationsMenu, ThemeToggle } from "./top-bar";
 import { useAppStore } from "@/store/app.store";
 
@@ -16,6 +19,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const isAuthenticated = useAppStore((s) => s.isAuthenticated);
+  const { brand } = useTheme();
+  // Refresh organization branding and personal preferences from the server
+  useWorkspaceSync();
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
@@ -37,7 +43,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden">
       {/* Desktop sidebar (permanent, large screens only) */}
-      <aside className="hidden lg:flex w-[240px] shrink-0 flex-col border-r border-border bg-sidebar">
+      <aside className="hidden lg:flex w-[240px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
         <SidebarContent />
       </aside>
 
@@ -48,10 +54,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             className="absolute inset-0 bg-foreground/25 backdrop-blur-[2px] transition-opacity"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="animate-in-up absolute inset-y-0 left-0 flex w-[280px] flex-col border-r border-border bg-sidebar shadow-lg">
+          <aside className="animate-in-up absolute inset-y-0 left-0 flex w-[280px] flex-col border-r border-sidebar-border bg-sidebar shadow-lg">
             <button
               onClick={() => setMobileOpen(false)}
-              className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+              className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-md text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground"
               aria-label="Close navigation"
             >
               <X className="h-4 w-4" />
@@ -74,13 +80,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           </button>
 
           <div className="flex items-center gap-2 lg:hidden">
-            <GrovynMark size={24} />
-            <span className="font-display text-[14px] font-semibold tracking-tight">Grovyn</span>
+            <WorkspaceMark size={24} />
+            <span className="max-w-[160px] truncate font-display text-[14px] font-semibold tracking-tight">{brand.name}</span>
           </div>
 
           <div className="hidden lg:flex items-center gap-2 text-[13px] text-muted-foreground font-medium">
-            <span>Grovyn</span>
-            <span>/</span>
+            <span className="max-w-[200px] truncate">{brand.name}</span>
+            <span aria-hidden="true">/</span>
             <span className="text-foreground capitalize">{(pathname.split('/')[1] || "dashboard").replace(/-/g, " ")}</span>
           </div>
 

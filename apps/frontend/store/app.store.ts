@@ -20,16 +20,17 @@ import {
 
 import { ApplicationStatus, JobStatus, Role } from "@/constants/enums";
 import { canViewJobDetails, canViewAllJobs } from "@/lib/utils/permissions";
+import type { AppearanceMode, OrganizationBranding, Workspace } from "@/lib/theme/types";
 
 // Re-export for backward compat — existing files importing from app.store continue to work
 export type { Role, Section, Application };
-export type ThemeMode = "light" | "dark" | "system";
+/** @deprecated use AppearanceMode from "@/lib/theme" */
+export type ThemeMode = AppearanceMode;
 
 interface AppState {
   candidates: Candidate[];
   role: Role;
   threads: EmailThread[];
-  theme: ThemeMode;
   applications: Application[];
   jobs: Job[];
 
@@ -37,7 +38,11 @@ interface AppState {
   accessToken: string | null;
   authUser: UserProfile | null;
   isAuthenticated: boolean;
-  setAuth: (user: UserProfile, token: string) => void;
+  setAuth: (user: UserProfile, token: string, workspace?: Workspace) => void;
+  workspace: Workspace | null;
+  setWorkspace: (workspace: Workspace) => void;
+  setBranding: (branding: OrganizationBranding) => void;
+  setAppearancePreference: (appearance: AppearanceMode | null) => void;
   updateAuthUser: (patch: Partial<UserProfile>) => void;
   logout: () => void;
 
@@ -59,8 +64,6 @@ interface AppState {
   toggleStar: (id: string) => void;
   archiveThread: (id: string) => void;
 
-  // Theme
-  setTheme: (t: ThemeMode) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -69,7 +72,6 @@ export const useAppStore = create<AppState>()(
       candidates: CANDIDATES,
   role: Role.ADMINISTRATOR,
   threads: EMAIL_THREADS,
-  theme: "light",
   jobs: JOBS,
   applications: [
     { id: "app_1", jobId: "job_1", appliedAt: "3 days ago", status: ApplicationStatus.INTERVIEW },
@@ -81,12 +83,23 @@ export const useAppStore = create<AppState>()(
   accessToken: null,
   authUser: null,
   isAuthenticated: false,
-  setAuth: (user, token) => set({
+  setAuth: (user, token, workspace) => set((state) => ({
     authUser: user,
     accessToken: token,
     isAuthenticated: true,
     role: user.role,
-  }),
+    workspace: workspace ?? state.workspace,
+  })),
+  workspace: null,
+  setWorkspace: (workspace) => set({ workspace }),
+  setBranding: (branding) => set((state) => (
+    state.workspace ? { workspace: { ...state.workspace, branding } } : {}
+  )),
+  setAppearancePreference: (appearance) => set((state) => (
+    state.workspace
+      ? { workspace: { ...state.workspace, preferences: { ...state.workspace.preferences, appearance } } }
+      : {}
+  )),
   updateAuthUser: (patch) => set((state) => ({
     authUser: state.authUser ? { ...state.authUser, ...patch } : null,
   })),
@@ -94,6 +107,7 @@ export const useAppStore = create<AppState>()(
     authUser: null,
     accessToken: null,
     isAuthenticated: false,
+    workspace: null,
     role: Role.EMPLOYEE, // default back to employee
   }),
 
@@ -138,8 +152,6 @@ export const useAppStore = create<AppState>()(
   archiveThread: (id) =>
     set((s) => ({ threads: s.threads.map((t) => (t.id === id ? { ...t, archived: true } : t)) })),
 
-  // Theme
-  setTheme: (theme) => set({ theme }),
     }),
     {
       name: "grovyn-auth-storage",
@@ -148,6 +160,7 @@ export const useAppStore = create<AppState>()(
         authUser: state.authUser,
         isAuthenticated: state.isAuthenticated,
         role: state.role,
+        workspace: state.workspace,
       }),
     }
   )

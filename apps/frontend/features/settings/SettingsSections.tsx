@@ -1,30 +1,42 @@
 "use client";
 
 import { Avatar } from "@/components/app-shell";
-import { Check } from "lucide-react";
+import { Building2, Check } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useAppStore } from "@/store/app.store";
 import { THEME_OPTIONS } from "@/constants/settings.constants";
+import { useTheme } from "@/components/theme-provider";
+import { useUpdateAppearance } from "@/hooks/useWorkspace";
+import { PLATFORM_BRANDING } from "@/lib/theme/platform";
+import { PoweredBy } from "@/components/brand";
+import type { AppearanceMode } from "@/lib/theme/types";
 
 /** Shared card wrapper used by all tab sections */
 export function SettingsCard({
   title,
+  description,
   action,
   children,
+  className,
 }: {
   title: string;
+  description?: React.ReactNode;
   action?: React.ReactNode;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="surface-card p-6">
-      <div className="mb-5 flex items-center justify-between">
-        <div className="text-[13px] font-semibold">{title}</div>
+    <section className={"surface-card p-6 " + (className ?? "")} aria-label={title}>
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-[14px] font-semibold tracking-tight">{title}</h2>
+          {description && <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">{description}</p>}
+        </div>
         {action}
       </div>
       {children}
-    </div>
+    </section>
   );
 }
 
@@ -63,22 +75,48 @@ export function ProfileSection() {
   );
 }
 
-/** Theme tab */
+/**
+ * Personal appearance. Stored per user and never changes organization branding;
+ * "Organization default" follows whatever the organization admin has chosen.
+ */
 export function ThemeSection() {
-  const theme = useAppStore((s) => s.theme);
-  const setTheme = useAppStore((s) => s.setTheme);
+  const workspace = useAppStore((s) => s.workspace);
+  const { mode } = useTheme();
+  const updateAppearance = useUpdateAppearance();
+  const personal = workspace?.preferences.appearance ?? null;
+  const orgDefault = workspace?.branding.defaultAppearance ?? "system";
+  const orgDefaultLabel = THEME_OPTIONS.find((o) => o.v === orgDefault)?.l ?? "System";
+
+  const select = (value: AppearanceMode | null) => {
+    if (value === personal) return;
+    updateAppearance.mutate(value, {
+      onSuccess: () => toast.success(value ? `Appearance: ${THEME_OPTIONS.find((o) => o.v === value)?.l}` : "Following organization default"),
+    });
+  };
+
+  const options: { v: AppearanceMode | null; l: string; d: string; i: React.ElementType }[] = [
+    { v: null, l: "Organization default", d: `Currently ${orgDefaultLabel.toLowerCase()}, set by your administrator.`, i: Building2 },
+    ...THEME_OPTIONS,
+  ];
+
   return (
-    <SettingsCard title="Appearance">
-      <div className="grid gap-3 sm:grid-cols-3">
-        {THEME_OPTIONS.map((opt) => {
+    <SettingsCard
+      title="My appearance"
+      description={`Choose how ${PLATFORM_BRANDING.productName} looks for you. This only affects your account. Now showing ${mode} mode.`}
+    >
+      <div role="radiogroup" aria-label="Appearance" className="grid gap-3 sm:grid-cols-2">
+        {options.map((opt) => {
           const Icon = opt.i;
-          const active = theme === opt.v;
+          const active = personal === opt.v;
           return (
             <button
-              key={opt.v}
-              onClick={() => { setTheme(opt.v); toast.success(`Theme: ${opt.l}`); }}
+              key={opt.v ?? "org"}
+              role="radio"
+              aria-checked={active}
+              disabled={updateAppearance.isPending}
+              onClick={() => select(opt.v)}
               className={
-                "relative flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition " +
+                "relative flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition disabled:opacity-70 " +
                 (active
                   ? "border-primary bg-primary/5 ring-2 ring-primary/25"
                   : "border-border bg-surface-2 hover:border-border-strong hover:bg-surface")
@@ -146,11 +184,48 @@ export function NotificationsSection() {
                 type="checkbox" 
                 checked={isChecked} 
                 onChange={(e) => handleToggle(n.id, e.target.checked)}
-                className="h-4 w-4 accent-[color:var(--color-accent)]" 
+                className="h-4 w-4 accent-[var(--color-primary)]" 
               />
             </label>
           );
         })}
+      </div>
+    </SettingsCard>
+  );
+}
+
+/** About: product information and platform attribution (platform-controlled, not tenant-editable). */
+export function AboutSection() {
+  const workspace = useAppStore((s) => s.workspace);
+  const { platformName, productName, productTagline, version, platformUrl, supportEmail } = PLATFORM_BRANDING;
+  const rows: [string, React.ReactNode][] = [
+    ["Product", productName],
+    ["Version", version],
+    ["Workspace", workspace ? workspace.branding.displayName : "—"],
+    ["Provided by", platformUrl ? <a href={platformUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{platformName}</a> : platformName],
+  ];
+  if (supportEmail) rows.push(["Support", <a key="s" href={`mailto:${supportEmail}`} className="text-primary hover:underline">{supportEmail}</a>]);
+
+  return (
+    <SettingsCard title={`About ${productName}`} description={productTagline}>
+      <dl className="divide-y divide-border rounded-lg border border-border">
+        {rows.map(([k, v]) => (
+          <div key={k} className="flex items-center justify-between gap-4 px-4 py-3 text-[13px]">
+            <dt className="text-muted-foreground">{k}</dt>
+            <dd className="text-right font-medium">{v}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="mt-4 flex flex-wrap gap-4 text-[12.5px]">
+        <Link href="/terms" className="font-medium text-primary hover:underline">Terms of Service</Link>
+        <Link href="/privacy" className="font-medium text-primary hover:underline">Privacy Policy</Link>
+        <Link href="/cookies" className="font-medium text-primary hover:underline">Cookie Policy</Link>
+      </div>
+      <div className="mt-5 flex items-center justify-between gap-4">
+        <PoweredBy placement="about" />
+        <span className="text-[11.5px] text-muted-foreground">
+          © {new Date().getFullYear()} {platformName}
+        </span>
       </div>
     </SettingsCard>
   );

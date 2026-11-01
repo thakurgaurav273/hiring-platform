@@ -19,10 +19,10 @@ interface JobTableRowProps {
 }
 
 const STATUS_CLASS: Record<JobStatus, string> = {
-  [JobStatus.OPEN]:     "bg-[oklch(0.94_0.05_155)] text-[oklch(0.36_0.09_155)]",
+  [JobStatus.OPEN]:     "tone-soft [--tone:var(--color-success)]",
   [JobStatus.DRAFT]:    "bg-secondary text-muted-foreground",
-  [JobStatus.ON_HOLD]: "bg-[oklch(0.95_0.06_75)] text-[oklch(0.4_0.09_75)]",
-  [JobStatus.CLOSED]:   "bg-[oklch(0.94_0.03_25)] text-[oklch(0.4_0.08_25)]",
+  [JobStatus.ON_HOLD]: "tone-soft [--tone:var(--color-warning)]",
+  [JobStatus.CLOSED]:   "tone-soft [--tone:var(--color-destructive)]",
 };
 
 function StatusPill({ status }: { status: Job["status"] }) {

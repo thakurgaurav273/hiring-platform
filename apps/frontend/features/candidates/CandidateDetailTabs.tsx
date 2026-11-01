@@ -265,11 +265,11 @@ function ThreadItem({ thread, onClick }: { thread: any; onClick: () => void }) {
 
 function NoteItem({ note }: { note: any }) {
   const opinionColors: Record<string, string> = {
-    "Highly Recommend": "bg-[oklch(0.92_0.06_155)] text-[oklch(0.3_0.1_155)]",
-    Recommend: "bg-[oklch(0.93_0.05_240)] text-[oklch(0.35_0.1_240)]",
+    "Highly Recommend": "tone-soft [--tone:var(--color-success)]",
+    Recommend: "tone-soft [--tone:var(--color-info)]",
     Neutral: "bg-secondary text-muted-foreground",
-    Average: "bg-[oklch(0.94_0.07_75)] text-[oklch(0.4_0.1_75)]",
-    "Below Average": "bg-[oklch(0.94_0.04_25)] text-[oklch(0.4_0.08_25)]",
+    Average: "tone-soft [--tone:var(--color-warning)]",
+    "Below Average": "tone-soft [--tone:var(--color-destructive)]",
   };
   
   const authorName = note.author ? `${note.author.firstName} ${note.author.lastName}` : "Unknown";

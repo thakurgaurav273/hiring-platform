@@ -1,4 +1,5 @@
 import { EmailProvider } from "./providers/email-provider.interface";
+import { PLATFORM, escapeHtml } from "../../config/platform.config";
 import { SmtpProvider } from "./providers/smtp.provider";
 
 import { prisma } from "../../database/prisma-client";
@@ -138,24 +139,24 @@ class EmailService {
         const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
         const resetLink = `${frontendUrl}/reset-password?token=${token}`;
 
-        const subject = "Reset your Grovyn Talent password";
+        const subject = `Reset your ${PLATFORM.productName} password`;
 
         const html = `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="text-align: center; margin-bottom: 30px;">
-                <h2 style="color: #0F766E; margin: 0;">Grovyn Talent</h2>
+                <h2 style="color: ${PLATFORM.brandColor}; margin: 0;">${PLATFORM.productName}</h2>
             </div>
             
             <div style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                 <h3 style="color: #111827; margin-top: 0; font-size: 20px;">Reset your password</h3>
                 
                 <p style="color: #4b5563; font-size: 16px; line-height: 1.5; margin-bottom: 24px;">
-                    We received a request to reset the password for your Grovyn Talent account. 
+                    We received a request to reset the password for your ${PLATFORM.productName} account. 
                     This link will expire in 24 hours.
                 </p>
                 
                 <div style="text-align: center; margin-bottom: 24px;">
-                    <a href="${resetLink}" style="display: inline-block; background-color: #0F766E; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px;">
+                    <a href="${resetLink}" style="display: inline-block; background-color: ${PLATFORM.brandColor}; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px;">
                         Reset Password
                     </a>
                 </div>
@@ -168,16 +169,16 @@ class EmailService {
                 
                 <p style="color: #9ca3af; font-size: 12px; margin: 0;">
                     If the button doesn't work, copy and paste the following link into your browser:<br/>
-                    <a href="${resetLink}" style="color: #0F766E; word-break: break-all;">${resetLink}</a>
+                    <a href="${resetLink}" style="color: ${PLATFORM.brandColor}; word-break: break-all;">${resetLink}</a>
                 </p>
             </div>
         </div>
         `;
 
         const plainText = `
-Reset your Grovyn Talent password
+Reset your ${PLATFORM.productName} password
 
-We received a request to reset the password for your Grovyn Talent account.
+We received a request to reset the password for your ${PLATFORM.productName} account.
 This link will expire in 24 hours.
 
 Reset Password: ${resetLink}
@@ -188,32 +189,34 @@ If you didn't request a password reset, you can safely ignore this email.
         return this.provider.sendEmail(to, subject, plainText, html);
     }
 
-    async sendInvitationEmail(data: { to: string; token: string; role: string }) {
+    async sendInvitationEmail(data: { to: string; token: string; role: string; organizationName: string }) {
         const { to, token, role } = data;
+        // Organization names are tenant-controlled, so escape them for HTML.
+        const orgName = escapeHtml(data.organizationName);
         const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
         const inviteLink = `${frontendUrl}/accept-invitation?token=${token}`;
         
         // Capitalize role for display
         const displayRole = role.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
-        const subject = "You've been invited to Grovyn Talent";
+        const subject = `You've been invited to join ${data.organizationName} on ${PLATFORM.productName}`;
 
         const html = `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="text-align: center; margin-bottom: 30px;">
-                <h2 style="color: #0F766E; margin: 0;">Grovyn Talent</h2>
+                <h2 style="color: ${PLATFORM.brandColor}; margin: 0;">${PLATFORM.productName}</h2>
             </div>
             
             <div style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
                 <h3 style="color: #111827; margin-top: 0; font-size: 20px;">You've been invited!</h3>
                 
                 <p style="color: #4b5563; font-size: 16px; line-height: 1.5; margin-bottom: 24px;">
-                    You have been invited to join the Grovyn Talent workspace as a <strong>${displayRole}</strong>. 
+                    You have been invited to join <strong>${orgName}</strong> on ${PLATFORM.productName} as a <strong>${displayRole}</strong>. 
                     Please accept the invitation to set up your account. This link is valid for 7 days.
                 </p>
                 
                 <div style="text-align: center; margin-bottom: 24px;">
-                    <a href="${inviteLink}" style="display: inline-block; background-color: #0F766E; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px;">
+                    <a href="${inviteLink}" style="display: inline-block; background-color: ${PLATFORM.brandColor}; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px;">
                         Accept Invitation
                     </a>
                 </div>
@@ -222,16 +225,16 @@ If you didn't request a password reset, you can safely ignore this email.
                 
                 <p style="color: #9ca3af; font-size: 12px; margin: 0;">
                     If the button doesn't work, copy and paste the following link into your browser:<br/>
-                    <a href="${inviteLink}" style="color: #0F766E; word-break: break-all;">${inviteLink}</a>
+                    <a href="${inviteLink}" style="color: ${PLATFORM.brandColor}; word-break: break-all;">${inviteLink}</a>
                 </p>
             </div>
         </div>
         `;
 
         const plainText = `
-You've been invited to Grovyn Talent
+You've been invited to join ${data.organizationName} on ${PLATFORM.productName}
 
-You have been invited to join the Grovyn Talent workspace as a ${displayRole}.
+You have been invited to join ${data.organizationName} on ${PLATFORM.productName} as a ${displayRole}.
 Please accept the invitation to set up your account. This link is valid for 7 days.
 
 Accept Invitation: ${inviteLink}
@@ -250,7 +253,7 @@ Accept Invitation: ${inviteLink}
         const html = `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="text-align: center; margin-bottom: 30px;">
-                <h2 style="color: #0F766E; margin: 0;">Grovyn Talent</h2>
+                <h2 style="color: ${PLATFORM.brandColor}; margin: 0;">${PLATFORM.productName}</h2>
             </div>
             
             <div style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
@@ -262,7 +265,7 @@ Accept Invitation: ${inviteLink}
                 </p>
                 
                 <div style="text-align: center; margin-bottom: 24px;">
-                    <a href="${inviteLink}" style="display: inline-block; background-color: #0F766E; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px;">
+                    <a href="${inviteLink}" style="display: inline-block; background-color: ${PLATFORM.brandColor}; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 16px;">
                         Accept Invitation
                     </a>
                 </div>
@@ -271,7 +274,7 @@ Accept Invitation: ${inviteLink}
                 
                 <p style="color: #9ca3af; font-size: 12px; margin: 0;">
                     If the button doesn't work, copy and paste the following link into your browser:<br/>
-                    <a href="${inviteLink}" style="color: #0F766E; word-break: break-all;">${inviteLink}</a>
+                    <a href="${inviteLink}" style="color: ${PLATFORM.brandColor}; word-break: break-all;">${inviteLink}</a>
                 </p>
             </div>
         </div>
@@ -296,7 +299,7 @@ Accept Invitation: ${inviteLink}
         const html = `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="text-align: center; margin-bottom: 30px;">
-                <h2 style="color: #0F766E; margin: 0;">Grovyn Talent</h2>
+                <h2 style="color: ${PLATFORM.brandColor}; margin: 0;">${PLATFORM.productName}</h2>
             </div>
             
             <div style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
@@ -320,7 +323,7 @@ Accept Invitation: ${inviteLink}
                 
                 <p style="color: #9ca3af; font-size: 12px; margin: 0;">
                     Regards,<br/>
-                    The Grovyn Talent Recruiting Team
+                    The ${PLATFORM.productName} Recruiting Team
                 </p>
             </div>
         </div>
@@ -336,7 +339,7 @@ After careful consideration, our team has decided to move forward with other can
 We will keep your resume on file and reach out if a suitable opening becomes available in the future. We wish you the best of luck in your job search and future professional endeavors.
 
 Regards,
-The Grovyn Talent Recruiting Team
+The ${PLATFORM.productName} Recruiting Team
         `.trim();
 
         return this.provider.sendEmail(to, subject, plainText, html);
@@ -364,12 +367,12 @@ The Recruiting Team
 
     async sendCandidateReferralAddedEmail(data: { to: string; candidateName: string; referrerName: string; jobTitle: string }) {
         const { to, candidateName, referrerName, jobTitle } = data;
-        const subject = `You've been referred for ${jobTitle} at Grovyn Talent!`;
+        const subject = `You've been referred for ${jobTitle} at ${PLATFORM.productName}!`;
 
         const html = `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <div style="text-align: center; margin-bottom: 30px;">
-                <h2 style="color: #0F766E; margin: 0;">Grovyn Talent</h2>
+                <h2 style="color: ${PLATFORM.brandColor}; margin: 0;">${PLATFORM.productName}</h2>
             </div>
             
             <div style="background-color: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
@@ -389,7 +392,7 @@ The Recruiting Team
                 
                 <p style="color: #9ca3af; font-size: 12px; margin: 0;">
                     Best regards,<br/>
-                    The Grovyn Talent Recruiting Team
+                    The ${PLATFORM.productName} Recruiting Team
                 </p>
             </div>
         </div>
@@ -403,7 +406,7 @@ Great news! ${referrerName} has referred you for the ${jobTitle} position.
 Our recruiting team will review your profile and reach out if there is a match with our current requirements.
 
 Best regards,
-The Grovyn Talent Recruiting Team
+The ${PLATFORM.productName} Recruiting Team
         `.trim();
 
         return this.provider.sendEmail(to, subject, plainText, html);

@@ -146,7 +146,7 @@ function PipelineInner() {
                           type="checkbox"
                           checked={stageF.includes(s)}
                           onChange={() => set("stageF", stageF.includes(s) ? stageF.filter(x => x !== s) : [...stageF, s])}
-                          className="h-4 w-4 accent-[color:var(--color-accent)]"
+                          className="h-4 w-4 accent-[var(--color-primary)]"
                         />
                         <span className="truncate">{String(s).toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
                       </label>

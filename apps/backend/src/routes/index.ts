@@ -13,6 +13,7 @@ import webhooksRoutes from "../modules/webhooks/webhooks.routes";
 import interviewsRoutes from "../modules/interviews/interviews.routes";
 import reportsRoutes from "../modules/reports/reports.routes";
 import notificationsRoutes from "../modules/notifications/notification.routes";
+import organizationRoutes from "../modules/organization/organization.routes";
 
 const router = Router();
 
@@ -29,6 +30,7 @@ router.use("/webhooks", webhooksRoutes);
 router.use("/interviews", interviewsRoutes);
 router.use("/reports", reportsRoutes);
 router.use("/notifications", notificationsRoutes);
+router.use("/organization", organizationRoutes);
 router.use("/", notesFeedbackRoutes);
 
-export default router;
+export default router;

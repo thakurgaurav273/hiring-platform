@@ -1,3 +1,12 @@
+import type { InvitationBranding } from "@/lib/theme/types";
+
+export interface InvitationDetails {
+  email: string;
+  role: string;
+  /** The inviting organization, so the page can show its branding. */
+  organization: { name: string; branding: InvitationBranding };
+}
+
 import { api } from "./axios";
 import type { UserProfile } from "./auth.service";
 
@@ -43,8 +52,8 @@ export const usersService = {
     return response.data;
   },
 
-  getInvitation: async (token: string): Promise<{ email: string; role: string }> => {
-    const response = await api.get<{ data: { email: string; role: string } }>(`/users/invitations/${token}`);
+  getInvitation: async (token: string): Promise<InvitationDetails> => {
+    const response = await api.get<{ data: InvitationDetails }>(`/users/invitations/${token}`);
     return response.data.data;
   },
 

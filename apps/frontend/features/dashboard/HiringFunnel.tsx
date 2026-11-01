@@ -79,7 +79,7 @@ export function HiringFunnel({ bars }: HiringFunnelProps) {
                   height: `${pct}%`,
                   minHeight: "4px",
                   borderRadius: "4px 4px 0 0",
-                  backgroundColor: isRejected ? "var(--destructive)" : "#19C38C",
+                  backgroundColor: isRejected ? "var(--color-destructive)" : "var(--color-chart-1)",
                   opacity: isRejected ? 0.8 : 1,
                   transition: "opacity 0.15s",
                 }}

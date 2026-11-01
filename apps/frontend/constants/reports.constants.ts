@@ -18,16 +18,18 @@ export const FUNNEL_STAGES: Stage[] = [
 // Baseline applicant volumes per funnel stage (admin / org-wide view)
 export const ADMIN_FUNNEL_VOLUMES: number[] = [1284, 812, 486, 312, 214, 148, 92, 57];
 
-// Gradient colors per funnel stage (index-aligned with FUNNEL_STAGES)
+// Funnel colours per stage (index-aligned with FUNNEL_STAGES). Early stages
+// use the organization primary colour, later stages blend towards the brand
+// secondary colour, so the chart follows the active theme.
 export const FUNNEL_BASE_COLORS: string[] = [
-  "#4F6EF7",
-  "#5A78F8",
-  "#6786FA",
-  "#7594FB",
-  "#7FA2FC",
-  "#F5C84C",
-  "#F39C34",
-  "#EF6A2E",
+  "var(--color-chart-1)",
+  "color-mix(in oklab, var(--color-chart-1) 88%, var(--color-chart-2))",
+  "color-mix(in oklab, var(--color-chart-1) 76%, var(--color-chart-2))",
+  "color-mix(in oklab, var(--color-chart-1) 64%, var(--color-chart-2))",
+  "color-mix(in oklab, var(--color-chart-1) 52%, var(--color-chart-2))",
+  "color-mix(in oklab, var(--color-chart-1) 40%, var(--color-chart-2))",
+  "color-mix(in oklab, var(--color-chart-1) 26%, var(--color-chart-2))",
+  "var(--color-chart-2)",
 ];
 
 // Default funnel data used when no runtime data is provided to RecruitmentFunnel

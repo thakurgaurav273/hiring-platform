@@ -1,38 +1,36 @@
 "use client";
 
 import type { Stage } from "@/lib/mock-data";
-import { STAGE_STYLES, PRIORITY_COLORS } from "@/constants/stages.constants";
+import { STAGE_TONES, PRIORITY_COLORS } from "@/constants/stages.constants";
+import type { CSSProperties } from "react";
+
+// Backend stage names that differ from the frontend enum
+const STAGE_ALIASES: Record<string, Stage> = {
+  technical_interview: "technical_round" as Stage,
+  hr_interview: "hr_round" as Stage,
+  offer_extended: "offer_sent" as Stage,
+  joined: "hired" as Stage,
+};
 
 export function StageBadge({ stage, size = "sm" }: { stage: Stage | string; size?: "sm" | "md" }) {
-  // Map backend uppercase strings to frontend lowercase enums where possible, or use raw lowercased value
-  const mappedStage = (typeof stage === 'string' ? stage.toLowerCase() : stage) as Stage;
-  
-  // Fallback styling for unmapped stages
-  const defaultStyle = { fg: "oklch(0.4 0 0)", bg: "oklch(0.95 0 0)", border: "oklch(0.86 0 0)", dot: "oklch(0.6 0 0)" };
-  
-  // Try exact match, then mapped match
-  let style = STAGE_STYLES[stage as Stage] || STAGE_STYLES[mappedStage] || defaultStyle;
+  const key = String(stage).toLowerCase();
+  const tone = STAGE_TONES[stage as Stage] ?? STAGE_TONES[key as Stage] ?? STAGE_TONES[STAGE_ALIASES[key]];
 
-  // Handle specific backend mismatches (e.g., TECHNICAL_INTERVIEW -> technical_round)
-  if (!STAGE_STYLES[mappedStage as Stage]) {
-    if ((mappedStage as string) === "technical_interview") style = STAGE_STYLES["technical_round" as Stage];
-    if ((mappedStage as string) === "hr_interview") style = STAGE_STYLES["hr_round" as Stage];
-    if ((mappedStage as string) === "offer_extended") style = STAGE_STYLES["offer_sent" as Stage];
-    if ((mappedStage as string) === "joined") style = STAGE_STYLES["hired" as Stage];
-  }
-
-  // Formatting display text: APPLIED -> Applied, TECHNICAL_INTERVIEW -> Technical Interview
-  const displayText = String(stage).toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  // APPLIED -> Applied, TECHNICAL_INTERVIEW -> Technical Interview
+  const displayText = key
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .replace(/\bHr\b/g, "HR");
 
   return (
     <span
       className={
-        "inline-flex items-center gap-1.5 rounded-full font-medium " +
+        "tone-badge inline-flex items-center gap-1.5 rounded-full font-medium " +
         (size === "md" ? "px-2.5 py-1 text-[11.5px]" : "px-2 py-0.5 text-[10.5px]")
       }
-      style={{ color: style.fg, background: style.bg, boxShadow: `inset 0 0 0 1px ${style.border}` }}
+      style={tone ? ({ "--tone": tone } as CSSProperties) : undefined}
     >
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: style.dot }} />
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: tone ?? "var(--color-muted-foreground)" }} />
       {displayText}
     </span>
   );

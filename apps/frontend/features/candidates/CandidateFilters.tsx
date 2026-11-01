@@ -72,7 +72,7 @@ export function CandidateFilters({
                   type="checkbox"
                   checked={deptF.includes(d)}
                   onChange={() => toggleItem(deptF, d, setDeptF)}
-                  className="h-4 w-4 accent-[color:var(--color-accent)]"
+                  className="h-4 w-4 accent-[var(--color-primary)]"
                 />
                 <span className="truncate">{d}</span>
               </label>
@@ -89,7 +89,7 @@ export function CandidateFilters({
                 type="checkbox"
                 checked={stageF.includes(s)}
                 onChange={() => toggleItem(stageF, s, setStageF)}
-                className="h-4 w-4 accent-[color:var(--color-accent)]"
+                className="h-4 w-4 accent-[var(--color-primary)]"
               />
               <StageBadge stage={s} />
             </label>
@@ -105,7 +105,7 @@ export function CandidateFilters({
                 type="checkbox"
                 checked={jobF.includes(j.id)}
                 onChange={() => toggleItem(jobF, j.id, setJobF)}
-                className="h-4 w-4 accent-[color:var(--color-accent)]"
+                className="h-4 w-4 accent-[var(--color-primary)]"
               />
               <span className="truncate">{j.title}</span>
             </label>

@@ -26,6 +26,22 @@ app.use('/api', limiter);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Branding images (logos, favicons) are displayed by the frontend on another
+// origin, so they need a cross-origin resource policy. Uploads are validated
+// raster images with server-generated names, so they are safe to cache long.
+app.use(
+  '/uploads/branding',
+  express.static(path.resolve(env.LOCAL_STORAGE_DIR, 'branding'), {
+    fallthrough: false,
+    index: false,
+    setHeaders: (res) => {
+      res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.set('Content-Security-Policy', "default-src 'none'");
+      res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    },
+  }),
+);
+
 // Serve uploaded files statically and force download
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads'), {
   setHeaders: (res, path) => {

@@ -93,7 +93,7 @@ function InterviewsInner() {
                     <div className="truncate text-[13px] font-medium">{c.firstName} {c.lastName}</div>
                     <div className="truncate text-[11.5px] text-muted-foreground capitalize">{i.type.toLowerCase()} · {interviewerNames} · {dateStr}</div>
                   </div>
-                  <span className="rounded-full bg-[oklch(0.94_0.05_155)] px-2 py-0.5 text-[10.5px] font-medium text-[oklch(0.36_0.09_155)]">Completed</span>
+                  <span className="tone-soft [--tone:var(--color-success)] rounded-full px-2 py-0.5 text-[10.5px] font-medium">Completed</span>
                 </Link>
               );
             })}

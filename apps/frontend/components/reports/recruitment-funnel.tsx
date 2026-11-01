@@ -96,7 +96,7 @@ function DesktopFunnel({ stages, hoveredIndex, setHoveredIndex }: { stages: Funn
                   onMouseLeave={() => setHoveredIndex(null)}
                 >
                   {/* Left Panel */}
-                  <div className="w-[220px] bg-white px-5 flex items-center font-semibold text-[13px] border-b border-border/40 text-foreground transition-colors pointer-events-auto first:rounded-tl-xl last:rounded-bl-xl z-20">
+                  <div className="w-[220px] bg-surface px-5 flex items-center font-semibold text-[13px] border-b border-border/40 text-foreground transition-colors pointer-events-auto first:rounded-tl-xl last:rounded-bl-xl z-20">
                     <motion.span 
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -118,7 +118,7 @@ function DesktopFunnel({ stages, hoveredIndex, setHoveredIndex }: { stages: Funn
                   </div>
                   
                   {/* Right Panel (Conv %) */}
-                  <div className="w-[120px] bg-white px-5 flex items-center justify-end text-[13px] text-muted-foreground border-b border-border/40 transition-colors pointer-events-auto first:rounded-tr-xl last:rounded-br-xl z-20">
+                  <div className="w-[120px] bg-surface px-5 flex items-center justify-end text-[13px] text-muted-foreground border-b border-border/40 transition-colors pointer-events-auto first:rounded-tr-xl last:rounded-br-xl z-20">
                     <motion.span
                       initial={{ opacity: 0, x: 10 }}
                       animate={{ opacity: 1, x: 0 }}

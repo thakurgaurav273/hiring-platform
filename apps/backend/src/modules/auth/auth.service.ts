@@ -5,6 +5,7 @@ import { AppError } from "../../common/errors/app-error";
 import { StatusCodes } from "http-status-codes";
 import { jwtConfig } from "../../config/jwt.config";
 import { emailService } from "../email/email.service";
+import { getWorkspace, provisionOrganization } from "../organization/organization.service";
 
 export const login = async (data: {
     email: string;
@@ -72,6 +73,14 @@ export const login = async (data: {
         expiresAt
     );
 
+    // Organization, branding and appearance preferences, so the client can
+    // apply the tenant theme immediately after sign-in.
+    const workspace = await getWorkspace({
+        id: user.id,
+        role: user.role,
+        organizationId: user.organizationId,
+    });
+
     return {
         user: {
             id: user.id,
@@ -80,6 +89,7 @@ export const login = async (data: {
             email: user.email,
             role: user.role,
         },
+        workspace,
         accessToken,
         refreshToken,
     };
@@ -304,38 +314,32 @@ export const changePassword = async (
     return;
 };
 
+/**
+ * Registers a new organization together with its owner account.
+ * The organization receives the default Robin Labs theme; branding is
+ * customised later from Settings → Branding & Appearance.
+ *
+ * Not exposed over HTTP yet. Platform operators provision organizations with
+ * `npm run org:create` (src/scripts/create-organization.ts).
+ */
 export const signup = async (data: {
+    organizationName: string;
     email: string;
     password: string;
     firstName: string;
     lastName: string;
 }) => {
-    const { email, password, firstName, lastName } = data;
-
-    const existingUser = await authRepository.findUserByEmail(email);
-
-    if (existingUser) {
-        throw new AppError(
-            "User with this email already exists",
-            StatusCodes.CONFLICT
-        );
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const newUser = await authRepository.createUser({
-        email,
-        password: hashedPassword,
-        firstName,
-        lastName,
+    const { organization, owner } = await provisionOrganization({
+        name: data.organizationName,
+        owner: {
+            email: data.email,
+            password: data.password,
+            firstName: data.firstName,
+            lastName: data.lastName,
+        },
     });
-
     return {
-        id: newUser.id,
-        email: newUser.email,
-        firstName: newUser.firstName,
-        lastName: newUser.lastName,
-        role: newUser.role,
-        isActive: newUser.isActive,
+        ...owner,
+        organization: { id: organization.id, name: organization.name, slug: organization.slug },
     };
 };

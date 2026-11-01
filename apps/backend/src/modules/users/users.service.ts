@@ -5,19 +5,24 @@ import { Prisma, Role } from "@prisma/client";
 import crypto from "crypto";
 import bcrypt from "bcrypt";
 import { emailService } from "../email/email.service";
+import { getBranding } from "../organization/organization.service";
 
-export const getAllUsers = async (query: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    role?: Role;
-    isActive?: string;
-}) => {
+export const getAllUsers = async (
+    organizationId: string,
+    query: {
+        page?: number;
+        limit?: number;
+        search?: string;
+        role?: Role;
+        isActive?: string;
+    }
+) => {
     const page = query.page ? Number(query.page) : 1;
     const limit = query.limit ? Number(query.limit) : 10;
     const { search, role, isActive } = query;
 
-    const where: Prisma.UserWhereInput = {};
+    // Tenant isolation: only list members of the caller's organization.
+    const where: Prisma.UserWhereInput = { organizationId };
 
     if (search) {
         where.OR = [
@@ -53,9 +58,13 @@ export const getAllUsers = async (query: {
     };
 };
 
-export const getUserById = async (id: string) => {
+/**
+ * Fetch a user. When organizationId is given, users from other organizations
+ * are reported as "not found" so their existence is not revealed.
+ */
+export const getUserById = async (id: string, organizationId?: string) => {
     const user = await usersRepository.findUserById(id);
-    if (!user) {
+    if (!user || (organizationId && user.organizationId !== organizationId)) {
         throw new AppError("User not found", StatusCodes.NOT_FOUND);
     }
     return user;
@@ -75,16 +84,17 @@ export const updateUser = async (
         avatarUrl?: string;
         notificationPreferences?: any;
     },
-    actorId?: string
+    actorId?: string,
+    organizationId?: string
 ) => {
     const existingUser = await usersRepository.findUserById(id);
-    if (!existingUser) {
+    if (!existingUser || (organizationId && existingUser.organizationId !== organizationId)) {
         throw new AppError("User not found", StatusCodes.NOT_FOUND);
     }
 
     // Safeguard: Prevent changing the role of the last admin
     if (data.role && data.role !== "administrator" && existingUser.role === "administrator") {
-        const adminCount = await usersRepository.countActiveAdmins();
+        const adminCount = await usersRepository.countActiveAdmins(existingUser.organizationId);
         if (adminCount <= 1) {
             throw new AppError("Cannot change the role of the last administrator", StatusCodes.BAD_REQUEST);
         }
@@ -106,18 +116,18 @@ export const updateUser = async (
     return updated;
 };
 
-export const deleteUser = async (id: string, actorId: string) => {
+export const deleteUser = async (id: string, actorId: string, organizationId: string) => {
     if (id === actorId) {
         throw new AppError("You cannot deactivate your own account", StatusCodes.BAD_REQUEST);
     }
 
     const existingUser = await usersRepository.findUserById(id);
-    if (!existingUser) {
+    if (!existingUser || existingUser.organizationId !== organizationId) {
         throw new AppError("User not found", StatusCodes.NOT_FOUND);
     }
 
     if (existingUser.role === "administrator" && existingUser.isActive) {
-        const adminCount = await usersRepository.countActiveAdmins();
+        const adminCount = await usersRepository.countActiveAdmins(organizationId);
         if (adminCount <= 1) {
             throw new AppError("Cannot deactivate the last administrator", StatusCodes.BAD_REQUEST);
         }
@@ -140,6 +150,7 @@ export const deleteUser = async (id: string, actorId: string) => {
 
 export const inviteUser = async (
     inviterId: string,
+    organizationId: string,
     data: { email: string; role: Role }
 ) => {
     const existingUser = await usersRepository.findUserByEmail(data.email);
@@ -162,12 +173,15 @@ export const inviteUser = async (
         expiresAt,
         status: "PENDING",
         invitedById: inviterId,
+        organizationId,
     });
 
+    const branding = await getBranding(organizationId);
     await emailService.sendInvitationEmail({
         to: invitation.email,
         token: invitation.token,
         role: invitation.role,
+        organizationName: branding.displayName,
     });
 
     return invitation;
@@ -178,9 +192,24 @@ export const getInvitation = async (token: string) => {
     if (!invitation || invitation.status !== "PENDING" || invitation.expiresAt < new Date()) {
         throw new AppError("Invalid or expired invitation token", StatusCodes.BAD_REQUEST);
     }
+    // Lets the invitation page show the inviting organization's branding.
+    // Only public, presentational fields are exposed.
+    const branding = await getBranding(invitation.organizationId);
     return {
         email: invitation.email,
         role: invitation.role,
+        organization: {
+            name: branding.displayName,
+            branding: {
+                displayName: branding.displayName,
+                logoUrl: branding.logoUrl,
+                themePreset: branding.themePreset,
+                primaryColor: branding.primaryColor,
+                secondaryColor: branding.secondaryColor,
+                fontPreset: branding.fontPreset,
+                radiusPreset: branding.radiusPreset,
+            },
+        },
     };
 };
 
@@ -206,7 +235,10 @@ export const acceptInvitation = async (
         lastName,
         role: invitation.role as Role,
         invitedById: invitation.invitedById,
+        // The new member joins the organization that issued the invitation.
+        organizationId: invitation.organizationId,
     });
+    await usersRepository.createDefaultPreference(user.id);
 
     await usersRepository.updateInvitationStatus(invitation.id, "ACCEPTED");
 
@@ -216,6 +248,7 @@ export const acceptInvitation = async (
         newUserId: user.id,
         newUserName: `${firstName} ${lastName}`,
         newUserRole: invitation.role,
+        organizationId: invitation.organizationId,
     }).catch(console.error);
 
     return user;

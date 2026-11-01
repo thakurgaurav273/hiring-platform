@@ -98,10 +98,10 @@ export function MailThreadList({
                   onToggleStar(t.id); 
                   toast(t.starred ? "Removed star" : "Starred"); 
                 }}
-                className="mt-0.5 grid h-5 w-5 place-items-center rounded text-muted-foreground hover:text-[oklch(0.78_0.16_75)]"
+                className="mt-0.5 grid h-5 w-5 place-items-center rounded text-muted-foreground hover:text-warning"
                 aria-label="Toggle star"
               >
-                <Star className={`h-4 w-4 ${t.starred ? "fill-[oklch(0.78_0.16_75)] text-[oklch(0.78_0.16_75)]" : ""}`} />
+                <Star className={`h-4 w-4 ${t.starred ? "fill-warning text-warning" : ""}`} />
               </button>
               
               <Link 

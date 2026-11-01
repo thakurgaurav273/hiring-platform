@@ -1,4 +1,5 @@
 "use client";
+import { useTheme } from "@/components/theme-provider";
 
 import React from "react";
 import Link from "next/link";
@@ -10,6 +11,7 @@ import { useJob } from "@/hooks/useJobs";
 import { JobStatus } from "@/constants/enums";
 
 export default function SearchJobDetailPage({ params }: { params: Promise<{ jobId: string }> }) {
+  const { brand } = useTheme();
   const resolvedParams = React.use(params);
   const jobId = resolvedParams.jobId;
   const { data: jobResponse, isLoading, error } = useJob(jobId);
@@ -44,7 +46,7 @@ export default function SearchJobDetailPage({ params }: { params: Promise<{ jobI
             </div>
             <h1 className="font-display text-[32px] md:text-[40px] font-semibold leading-tight text-foreground">{job.title}</h1>
             <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3 text-[14px] text-muted-foreground">
-              <span className="inline-flex items-center gap-2"><Building2 className="h-4.5 w-4.5" /> Grovyn, Inc.</span>
+              <span className="inline-flex items-center gap-2"><Building2 className="h-4.5 w-4.5" /> {brand.name}</span>
               <span className="inline-flex items-center gap-2"><Briefcase className="h-4.5 w-4.5" /> {job.department}</span>
               <span className="inline-flex items-center gap-2"><MapPin className="h-4.5 w-4.5" /> {job.location}</span>
               <span className="inline-flex items-center gap-2"><Clock className="h-4.5 w-4.5" /> {job.employmentType}</span>
