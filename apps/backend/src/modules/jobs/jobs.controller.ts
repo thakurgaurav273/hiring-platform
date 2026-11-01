@@ -9,10 +9,7 @@ export const createJob = async (
     next: NextFunction
 ) => {
     try {
-        const job = await jobsService.createJob(
-            req.body,
-            req.user!.id
-        );
+        const job = await jobsService.createJob(req.body, req.user!.id, req.user!.organizationId);
 
         return res.status(StatusCodes.CREATED).json({
             success: true,
@@ -75,10 +72,7 @@ export const updateJob = async (
     next: NextFunction
 ) => {
     try {
-        const job = await jobsService.updateJob(
-            req.params.id,
-            req.body
-        );
+        const job = await jobsService.updateJob(req.params.id, req.body, req.user!);
 
         return res.status(StatusCodes.OK).json({
             success: true,
@@ -99,7 +93,7 @@ export const deleteJob = async (
     next: NextFunction
 ) => {
     try {
-        await jobsService.deleteJob(req.params.id);
+        await jobsService.deleteJob(req.params.id, req.user!.organizationId);
 
         return res.status(StatusCodes.OK).json({
             success: true,
@@ -159,7 +153,7 @@ export const getEligibleTeamMembers = async (
     next: NextFunction
 ) => {
     try {
-        const users = await jobsService.getEligibleTeamMembers(req.params.id);
+        const users = await jobsService.getEligibleTeamMembers(req.params.id, req.user!.organizationId);
 
         return res.status(StatusCodes.OK).json({
             success: true,

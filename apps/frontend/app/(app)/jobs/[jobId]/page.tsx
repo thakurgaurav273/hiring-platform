@@ -26,6 +26,7 @@ import { PriorityLevel } from "@/constants/enums";
 import { AssignRecruiterDialog } from "@/features/jobs/AssignRecruiterDialog";
 import { JobDetailApplications } from "@/features/jobs/JobDetailApplications";
 import { JobDetailPipeline } from "@/features/jobs/JobDetailPipeline";
+import { JobDistribution } from "@/features/jobs/JobDistribution";
 
 export default function JobDetailPage({ params }: { params: Promise<{ jobId: string }> }) {
   const resolvedParams = React.use(params);
@@ -74,6 +75,9 @@ function JobDetail({ jobId }: { jobId: string }) {
     });
   }, [candidatesData]);
   const [ui, setUi] = useState({ assignOpen: false });
+  // Same roles the distribution API allows (administrators always pass).
+  const canSeeDistribution =
+    role === ROLE_KEYS.ADMINISTRATOR || role === ROLE_KEYS.HIRING_MANAGER || role === ROLE_KEYS.RECRUITER;
 
   if (isLoading) return <div className="p-8"><Skeleton.JobDetail /></div>;
   if (!job) return <div className="p-8 text-center text-muted-foreground">Job not found.</div>;
@@ -138,6 +142,7 @@ function JobDetail({ jobId }: { jobId: string }) {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="applications">Applications ({cands.length})</TabsTrigger>
             <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
+            {canSeeDistribution && <TabsTrigger value="distribution">Distribution</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="overview" className="mt-5">
@@ -199,6 +204,12 @@ function JobDetail({ jobId }: { jobId: string }) {
           <TabsContent value="pipeline" className="mt-5">
             <JobDetailPipeline cands={cands} role={role} />
           </TabsContent>
+
+          {canSeeDistribution && (
+            <TabsContent value="distribution" className="mt-5">
+              <JobDistribution jobId={job.id} canManage={canSeeDistribution} />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
 

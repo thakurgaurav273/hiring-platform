@@ -60,7 +60,11 @@ export const getCandidates = async (params?: { page?: number; limit?: number; se
 
 export const createCandidate = async (candidateData: any) => {
   const isFormData = candidateData instanceof FormData;
-  const { data } = await api.post<{ success: boolean; data: Candidate }>(
+  const { data } = await api.post<{
+    success: boolean;
+    /** candidateCreated is false when an existing candidate (same email) got a new application. */
+    data: { id: string; applicationId: string; candidateCreated: boolean };
+  }>(
     "/candidates",
     candidateData,
     {

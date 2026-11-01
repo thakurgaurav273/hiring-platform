@@ -14,6 +14,8 @@ import interviewsRoutes from "../modules/interviews/interviews.routes";
 import reportsRoutes from "../modules/reports/reports.routes";
 import notificationsRoutes from "../modules/notifications/notification.routes";
 import organizationRoutes from "../modules/organization/organization.routes";
+import careersRoutes from "../modules/careers/careers.routes";
+import distributionRoutes from "../modules/distribution/distribution.routes";
 
 const router = Router();
 
@@ -31,6 +33,8 @@ router.use("/interviews", interviewsRoutes);
 router.use("/reports", reportsRoutes);
 router.use("/notifications", notificationsRoutes);
 router.use("/organization", organizationRoutes);
+router.use("/public/careers", careersRoutes);
+router.use("/distribution", distributionRoutes);
 router.use("/", notesFeedbackRoutes);
 
 export default router;

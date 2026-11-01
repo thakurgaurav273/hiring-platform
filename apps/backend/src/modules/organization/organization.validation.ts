@@ -50,6 +50,19 @@ export const brandingAssetSchema = z.object({
     }),
 });
 
+export const updateCareersSchema = z.object({
+    body: z
+        .object({
+            about: z
+                .string()
+                .trim()
+                .max(2000, "Keep the description under 2,000 characters")
+                .nullable()
+                .transform((v) => (v ? v : null)),
+        })
+        .strict(),
+});
+
 export const updatePreferencesSchema = z.object({
     body: z
         .object({

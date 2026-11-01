@@ -1,138 +1,83 @@
 import { AppError } from "../../common/errors/app-error";
 import { StatusCodes } from "http-status-codes";
 import candidateRepository from "./candidates.repository";
-import jobsRepository from "../jobs/jobs.repository";
 import { Prisma, PipelineStage } from "@prisma/client";
 import prisma from "../../database/prisma-client";
 
+export interface Actor {
+    id: string;
+    role: string;
+    department?: string | null;
+    organizationId: string;
+}
+
+/** 404 unless the candidate belongs to the actor's organization. */
+async function assertCandidateInOrganization(candidateId: string, organizationId: string) {
+    const found = await prisma.candidate.findFirst({ where: { id: candidateId, organizationId }, select: { id: true } });
+    if (!found) throw new AppError("Candidate not found", StatusCodes.NOT_FOUND);
+}
+
+/**
+ * Manual entry and employee referrals. Both go through the shared ingestion
+ * service, so deduplication and source attribution match public applications.
+ */
 export const createCandidate = async (
     data: {
         firstName: string;
-        lastName: string;
+        lastName?: string;
         email: string;
-        phone: string;
-        location: string;
-        experience?: any[];
+        phone?: string;
+        location?: string;
+        experience?: unknown;
         skills?: string[];
         jobId: string;
         stage?: PipelineStage;
-        resumeUrl?: string;
         education?: string;
         portfolio?: string;
+        linkedin?: string;
         summary?: string;
         referredBy?: string;
         whySuggest?: string;
     },
-    recruiterId: string
+    actor: Actor,
+    resume?: Express.Multer.File
 ) => {
-    const { jobId, stage, whySuggest, portfolio, education, experience, skills, summary, resumeUrl, ...restData } = data;
-    
-    // Explicitly cast and remove any stray fields like "resume" that might have bypassed validation
-    const candidateData = restData as any;
-    delete candidateData.resume;
-    
-    const prismaCandidateData: Omit<Prisma.CandidateCreateInput, "applications" | "notes"> = {
-        ...candidateData,
-        experience: experience as any,
-        skills: skills || [],
-        summary,
-        education: education ? [education] : undefined,
-        socialLinks: portfolio ? { portfolio } : undefined,
-    };
-
-    // Verify Job exists
-    const job = await jobsRepository.findJobById(jobId);
-    if (!job) {
-        throw new AppError("Job not found", StatusCodes.NOT_FOUND);
+    const { ingestApplication } = await import("../applications/applications.service");
+    // Employees can only refer on their own behalf.
+    const referredById = data.referredBy || null;
+    if (referredById && actor.role === "employee" && referredById !== actor.id) {
+        throw new AppError("You can only submit referrals as yourself", StatusCodes.FORBIDDEN);
     }
 
-    // Check if candidate already exists
-    const existingCandidate = await candidateRepository.findCandidateByEmail(data.email);
-
-    if (existingCandidate) {
-        // Check if candidate has already applied to this job
-        const existingApplication = await candidateRepository.findApplication(
-            existingCandidate.id,
-            jobId
-        );
-
-        if (existingApplication) {
-            throw new AppError(
-                "Candidate has already applied to this job",
-                StatusCodes.CONFLICT
-            );
-        }
-
-        // Create application for existing candidate
-        const newApp = await candidateRepository.createApplication(
-            existingCandidate.id,
-            jobId,
-            stage
-        );
-
-        if (data.referredBy) {
-            const referrer = await prisma.user.findUnique({ where: { id: data.referredBy } });
-            if (referrer) {
-                const candidateName = `${data.firstName} ${data.lastName}`;
-                const referrerName = `${referrer.firstName} ${referrer.lastName}`;
-                const { emailService } = await import("../email/email.service");
-                emailService.sendCandidateReferralAddedEmail({ to: data.email, candidateName, referrerName, jobTitle: job.title }).catch(console.error);
-                emailService.sendReferrerReferralAddedEmail({ to: referrer.email, candidateName, referrerName, jobTitle: job.title }).catch(console.error);
-            }
-        }
-
-        return newApp;
-    }
-
-    // Create candidate with application
-    const newCandidate = await candidateRepository.createCandidateWithApplication(
-        prismaCandidateData,
-        jobId,
-        stage,
-        whySuggest,
-        recruiterId // Use recruiterId (logged in user) as the note author
-    );
-
-    const user = await prisma.user.findUnique({ where: { id: recruiterId } });
-    const { logActivity } = await import("../timeline/timeline.service");
-
-    await logActivity({
-        type: "CANDIDATE_CREATED",
-        actorId: recruiterId,
-        entityType: "Candidate",
-        entityId: newCandidate.id,
-        description: `Added candidate ${newCandidate.firstName} ${newCandidate.lastName} for ${job.title}`,
-        department: job.department,
-        metadata: {
-            jobTitle: job.title,
-            jobId: job.id,
-        }
+    const result = await ingestApplication({
+        organizationId: actor.organizationId,
+        jobId: data.jobId,
+        applicant: {
+            firstName: data.firstName,
+            lastName: data.lastName,
+            email: data.email,
+            phone: data.phone,
+            location: data.location,
+            summary: data.summary,
+            skills: data.skills,
+            experience: data.experience,
+            education: data.education,
+            linkedinUrl: data.linkedin,
+            portfolioUrl: data.portfolio,
+        },
+        source: referredById
+            ? { type: "EMPLOYEE_REFERRAL", referredById }
+            : { type: "MANUAL" },
+        stage: data.stage,
+        resume: resume ?? null,
+        actorId: actor.id,
+        note: data.whySuggest ? { content: data.whySuggest, authorId: actor.id } : null,
     });
 
-    if (data.referredBy) {
-        const referrer = await prisma.user.findUnique({ where: { id: data.referredBy } });
-        if (referrer) {
-            const candidateName = `${data.firstName} ${data.lastName}`;
-            const referrerName = `${referrer.firstName} ${referrer.lastName}`;
-            const { emailService } = await import("../email/email.service");
-            emailService.sendCandidateReferralAddedEmail({ to: data.email, candidateName, referrerName, jobTitle: job.title }).catch(console.error);
-            emailService.sendReferrerReferralAddedEmail({ to: referrer.email, candidateName, referrerName, jobTitle: job.title }).catch(console.error);
-        }
+    if (result.status === "duplicate") {
+        throw new AppError("Candidate has already applied to this job", StatusCodes.CONFLICT);
     }
-
-    // Fire notification (fire-and-forget — never blocks)
-    const { notifyNewCandidate } = await import("../notifications/notification.service");
-    notifyNewCandidate({
-        candidateId: newCandidate.id,
-        candidateName: `${newCandidate.firstName} ${newCandidate.lastName}`,
-        jobId: job.id,
-        jobTitle: job.title,
-        jobDepartment: job.department,
-        isReferral: !!data.referredBy,
-        referrerUserId: data.referredBy || undefined,
-    }).catch(console.error);
-
-    return newCandidate;
+    return { id: result.candidateId, applicationId: result.applicationId, candidateCreated: result.candidateCreated };
 };
 
 
@@ -144,7 +89,7 @@ export const getAllCandidates = async (query: {
     stage?: PipelineStage | PipelineStage[];
     jobId?: string | string[];
     referredBy?: string;
-}, user: { id: string; role: string; department?: string | null }) => {
+}, user: Actor) => {
     const page = query.page ? Number(query.page) : 1;
     const limit = query.limit ? Number(query.limit) : 10;
     const { search, department, stage, jobId, referredBy } = query;
@@ -208,9 +153,9 @@ export const getAllCandidates = async (query: {
         }
     }
 
-    if (Object.keys(jobWhere).length > 0) {
-        where.job = jobWhere;
-    }
+    // Tenant isolation: only applications to this organization's jobs.
+    jobWhere.organizationId = user.organizationId;
+    where.job = jobWhere;
 
     // Search by name, email, job title, or candidate location
     if (search) {
@@ -265,7 +210,7 @@ export const getAllCandidates = async (query: {
         const prisma = prismaModule.default || prismaModule.prisma;
         
         const referrers = await prisma.user.findMany({
-            where: { id: { in: referrerIds } },
+            where: { id: { in: referrerIds }, organizationId: user.organizationId },
             select: { id: true, firstName: true, lastName: true },
         });
         
@@ -289,7 +234,8 @@ export const getAllCandidates = async (query: {
     };
 };
 
-export const getCandidateById = async (id: string, user: { id: string; role: string; department?: string | null }) => {
+export const getCandidateById = async (id: string, user: Actor) => {
+    await assertCandidateInOrganization(id, user.organizationId);
     // Ensure any past interviews are marked as COMPLETED first
     const interviewsRepositoryModule = await import("../interviews/interviews.repository");
     await interviewsRepositoryModule.default.autoCompleteInterviews();
@@ -332,8 +278,10 @@ export const getCandidateById = async (id: string, user: { id: string; role: str
 
 export const updateCandidate = async (
     id: string,
-    data: Prisma.CandidateUpdateInput
+    data: Prisma.CandidateUpdateInput,
+    organizationId: string
 ) => {
+    await assertCandidateInOrganization(id, organizationId);
     const existingCandidate = await candidateRepository.findCandidateById(id);
 
     if (!existingCandidate) {
@@ -362,8 +310,9 @@ export const updateCandidateStage = async (
     id: string,
     stage: PipelineStage,
     changedById?: string,
-    user?: { id: string; role: string; department?: string | null }
+    user?: Actor
 ) => {
+    if (user) await assertCandidateInOrganization(id, user.organizationId);
     const existingCandidate = await candidateRepository.findCandidateById(id);
 
     if (!existingCandidate) {
@@ -483,7 +432,8 @@ export const updateCandidateStage = async (
 };
 
 
-export const deleteCandidate = async (id: string) => {
+export const deleteCandidate = async (id: string, organizationId: string) => {
+    await assertCandidateInOrganization(id, organizationId);
     const existingCandidate = await candidateRepository.findCandidateById(id);
 
     if (!existingCandidate) {
@@ -495,7 +445,8 @@ export const deleteCandidate = async (id: string) => {
     return;
 };
 
-export const getCandidateNotes = async (candidateId: string) => {
+export const getCandidateNotes = async (candidateId: string, organizationId: string) => {
+    await assertCandidateInOrganization(candidateId, organizationId);
     const prismaModule = await import("../../database/prisma-client");
     const prisma = prismaModule.default || prismaModule.prisma;
     
@@ -514,8 +465,10 @@ export const addCandidateNote = async (
     candidateId: string,
     authorId: string,
     content: string,
-    opinion?: string
+    opinion: string | undefined,
+    organizationId: string
 ) => {
+    await assertCandidateInOrganization(candidateId, organizationId);
     const prismaModule = await import("../../database/prisma-client");
     const prisma = prismaModule.default || prismaModule.prisma;
     
@@ -561,7 +514,8 @@ export const addCandidateNote = async (
     return note;
 };
 
-export const getCandidateTimeline = async (candidateId: string) => {
+export const getCandidateTimeline = async (candidateId: string, organizationId: string) => {
+    await assertCandidateInOrganization(candidateId, organizationId);
     const prismaModule = await import("../../database/prisma-client");
     const prisma = prismaModule.default || prismaModule.prisma;
     

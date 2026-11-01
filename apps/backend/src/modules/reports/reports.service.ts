@@ -1,5 +1,6 @@
 import { Prisma, Role } from "@prisma/client";
 import reportsRepository from "./reports.repository";
+import { sourceLabel } from "../applications/applications.service";
 
 export const getReportsData = async (user: any) => {
     const isAdmin = user.role === Role.administrator;
@@ -8,15 +9,12 @@ export const getReportsData = async (user: any) => {
     // ── RBAC scoping ─────────────────────────────────────────────────────────
     // Admin  → org-wide (no filter)
     // Hiring Manager → scoped to their department
-    const applicationWhere: Prisma.ApplicationWhereInput =
-        isManager && user.department
-            ? { job: { department: user.department } }
-            : {};
-
-    const interviewWhere: Prisma.InterviewWhereInput =
-        isManager && user.department
-            ? { application: { job: { department: user.department } } }
-            : {};
+    const jobScope: Prisma.JobWhereInput = {
+        organizationId: user.organizationId,
+        ...(isManager && user.department ? { department: user.department } : {}),
+    };
+    const applicationWhere: Prisma.ApplicationWhereInput = { job: jobScope };
+    const interviewWhere: Prisma.InterviewWhereInput = { application: { job: jobScope } };
 
     // ── Parallel data fetch ───────────────────────────────────────────────────
     const [
@@ -27,6 +25,7 @@ export const getReportsData = async (user: any) => {
         avgTimeToHire,
         applicationsOverTime,
         funnelStages,
+        sourceBreakdown,
     ] = await Promise.all([
         reportsRepository.countApplications(applicationWhere),
         reportsRepository.countScheduledInterviews(interviewWhere),
@@ -35,6 +34,7 @@ export const getReportsData = async (user: any) => {
         reportsRepository.getAvgTimeToHire(applicationWhere),
         reportsRepository.getApplicationsOverTime(applicationWhere),
         reportsRepository.getFunnelStages(applicationWhere),
+        reportsRepository.getSourceBreakdown(applicationWhere),
     ]);
 
     // Offer acceptance rate = hired / offersSent * 100
@@ -43,7 +43,7 @@ export const getReportsData = async (user: any) => {
 
     // Applications per department — admin only (org-wide, not scoped)
     const applicationsPerDepartment = isAdmin
-        ? await reportsRepository.getApplicationsPerDepartment()
+        ? await reportsRepository.getApplicationsPerDepartment(applicationWhere)
         : [];
 
     // ── Build funnel with conversion rates ────────────────────────────────────
@@ -66,6 +66,13 @@ export const getReportsData = async (user: any) => {
         applicationsOverTime,
         applicationsPerDepartment,
         funnelStages: funnelWithConversion,
+        // Cost per application is not reported: no campaign spend data is collected.
+        applicationsBySource: sourceBreakdown.map((s) => ({
+            ...s,
+            label: sourceLabel(s.sourceType),
+            interviewRate: s.applications ? Math.round((s.interviewed / s.applications) * 100) : 0,
+            hireRate: s.applications ? Math.round((s.hired / s.applications) * 100) : 0,
+        })),
     };
 };
 

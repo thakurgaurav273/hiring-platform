@@ -133,6 +133,38 @@ enum NotificationCategory {
   SYSTEM
 }
 
+// Where an application came from. Recorded once per application and never
+// changed by later pipeline moves.
+enum ApplicationSourceType {
+  CAREERS_PAGE
+  COMPANY_WEBSITE
+  LINKEDIN
+  INDEED
+  NAUKRI
+  EMPLOYEE_REFERRAL
+  EMAIL
+  EXTERNAL_API
+  MANUAL
+  OTHER
+}
+
+// Publishing destinations tracked per job.
+enum PublicationChannel {
+  CAREERS_PAGE
+  WEBSITE_EMBED
+  LINKEDIN
+  INDEED
+  NAUKRI
+}
+
+enum PublicationStatus {
+  PENDING
+  PUBLISHED
+  PAUSED
+  FAILED
+  UNPUBLISHED
+}
+
 // Branding & theming. Keep in sync with apps/frontend/lib/theme/presets.ts
 enum ThemePreset {
   modern_enterprise
@@ -181,9 +213,15 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members     User[]                @relation("OrganizationMembers")
-  invitations UserInvitation[]
-  branding    OrganizationBranding?
+  // Shown on the public careers page.
+  about String?
+
+  members      User[]                @relation("OrganizationMembers")
+  invitations  UserInvitation[]
+  branding     OrganizationBranding?
+  jobs         Job[]
+  candidates   Candidate[]
+  publications JobPublication[]
 
   @@map("organizations")
 }
@@ -273,6 +311,9 @@ model User {
   notifications   Notification[]
   fcmTokens       FcmToken[]
 
+  referredApplications Application[]    @relation("ApplicationReferrer")
+  publicationUpdates   JobPublication[] @relation("PublicationUpdatedBy")
+
   ownedOrganization Organization?          @relation("OrganizationOwner")
   brandingUpdates   OrganizationBranding[] @relation("BrandingUpdatedBy")
   preference        UserPreference?
@@ -349,19 +390,24 @@ model JobInvitation {
 // ============================================================
 
 model Job {
-  id                  String         @id @default(uuid())
-  title               String
-  department          String
-  location            String?
-  employmentType      EmploymentType
-  experience          String?
-  skills              String[]
-  description         String
-  salaryMin           Int?
-  salaryMax           Int?
-  status              JobStatus      @default(DRAFT)
-  numOpenings         Int            @default(1)
-  applicationDeadline DateTime?
+  id                   String         @id @default(uuid())
+  organizationId       String
+  organization         Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  title                String
+  department           String
+  location             String?
+  employmentType       EmploymentType
+  experience           String?
+  skills               String[]
+  description          String
+  salaryMin            Int?
+  salaryMax            Int?
+  status               JobStatus      @default(DRAFT)
+  numOpenings          Int            @default(1)
+  applicationDeadline  DateTime?
+  // Custom questions on the public application form:
+  // [{ id, label, type: "short_text"|"long_text"|"yes_no"|"single_choice", options?, required }]
+  applicationQuestions Json?
 
   recruiterId String
   recruiter   User   @relation("JobRecruiter", fields: [recruiterId], references: [id])
@@ -379,10 +425,38 @@ model Job {
   pipelineTemplate  PipelineTemplate?
   hiringTeamMembers User[]            @relation("JobHiringTeam")
   jobInvitations    JobInvitation[]
+  publications      JobPublication[]
 
   @@index([status])
   @@index([recruiterId])
+  @@index([organizationId, status])
   @@map("jobs")
+}
+
+// Publishing state of one job on one destination. A destination with no row
+// has never been published to. Each destination succeeds or fails on its own.
+model JobPublication {
+  id             String             @id @default(uuid())
+  organizationId String
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  jobId          String
+  job            Job                @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  channel        PublicationChannel
+  status         PublicationStatus  @default(PENDING)
+  publishedAt    DateTime?
+  pausedAt       DateTime?
+  lastSyncedAt   DateTime?
+  externalId     String?
+  externalUrl    String?
+  lastError      String?
+  updatedById    String?
+  updatedBy      User?              @relation("PublicationUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@unique([jobId, channel])
+  @@index([organizationId, channel, status])
+  @@map("job_publications")
 }
 
 // ============================================================
@@ -390,21 +464,25 @@ model Job {
 // ============================================================
 
 model Candidate {
-  id          String    @id @default(uuid())
-  firstName   String
-  lastName    String
-  email       String
-  phone       String?
-  location    String?
-  referredBy  String?
-  referredOn  DateTime?
-  skills      String[]
-  experience  Json? // structured list of past roles
-  education   Json? // structured list of degrees
-  socialLinks Json? // { linkedin, github, portfolio, ... }
-  tags        String[]
-  source      String? // e.g. referral, LinkedIn, careers page
-  summary     String? // Professional summary
+  id              String       @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  firstName       String
+  lastName        String
+  email           String
+  // lower(trim(email)); candidates are unique per organization on this.
+  emailNormalized String
+  phone           String?
+  location        String?
+  referredBy      String?
+  referredOn      DateTime?
+  skills          String[]
+  experience      Json? // structured list of past roles
+  education       Json? // structured list of degrees
+  socialLinks     Json? // { linkedin, github, portfolio, ... }
+  tags            String[]
+  source          String? // e.g. referral, LinkedIn, careers page
+  summary         String? // Professional summary
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -416,7 +494,8 @@ model Candidate {
   emails         Email[]
   activityLogs   ActivityLog[]
 
-  @@unique([email])
+  @@unique([organizationId, emailNormalized])
+  @@index([organizationId])
   @@index([email])
   @@map("candidates")
 }
@@ -432,6 +511,8 @@ model Resume {
   storageProvider StorageProvider @default(LOCAL)
   isActive        Boolean         @default(true)
   uploadedAt      DateTime        @default(now())
+
+  applications Application[]
 
   @@index([candidateId])
   @@map("resumes")
@@ -451,6 +532,25 @@ model Application {
   currentStage PipelineStage @default(APPLIED)
   appliedAt    DateTime      @default(now())
 
+  // Source attribution, written once when the application is received.
+  sourceType       ApplicationSourceType @default(MANUAL)
+  sourceName       String?
+  sourceExternalId String?
+  // UTM/campaign parameters, landing URL, user agent class, etc.
+  sourceDetails    Json?
+  referredById     String?
+  referredBy       User?                 @relation("ApplicationReferrer", fields: [referredById], references: [id], onDelete: SetNull)
+
+  // Submitted with the application
+  coverLetter    String?
+  answers        Json?
+  linkedinUrl    String?
+  portfolioUrl   String?
+  consentAt      DateTime?
+  consentVersion String?
+  resumeId       String?
+  resume         Resume?   @relation(fields: [resumeId], references: [id], onDelete: SetNull)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -462,9 +562,12 @@ model Application {
   emails         Email[]
 
   @@unique([candidateId, jobId])
+  // An external application id can only be imported once per job and source.
+  @@unique([jobId, sourceType, sourceExternalId])
   @@index([jobId])
   @@index([candidateId])
   @@index([currentStage])
+  @@index([sourceType])
   @@map("applications")
 }
 

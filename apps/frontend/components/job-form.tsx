@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,6 +11,20 @@ import { useAppStore } from "@/store/app.store";
 import { jobSchema, type JobFormValues } from "@/lib/schemas/job.schema";
 import { JobStatus, JobType } from "@/constants/enums";
 import { useCreateJob, useUpdateJob } from "@/hooks/useJobs";
+import type { ApplicationQuestion } from "@/lib/careers";
+import {
+  ApplicationQuestionsEditor,
+  serializeQuestions,
+  validateQuestions,
+} from "@/features/jobs/ApplicationQuestionsEditor";
+
+/** yyyy-mm-dd in local time, for <input type="date">. */
+const toDateInput = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+/** Edit: the job's own deadline. Create: 30 days from today. */
+const defaultDeadline = (deadline?: string | null) =>
+  deadline ? deadline.slice(0, 10) : toDateInput(new Date(Date.now() + 30 * 86_400_000));
 
 export function JobForm({ mode, job }: { mode: "create" | "edit"; job?: Job | any }) {
   const router = useRouter();
@@ -25,16 +40,28 @@ export function JobForm({ mode, job }: { mode: "create" | "edit"; job?: Job | an
       title:       job?.title ?? "",
       department:  job?.department ?? "",
       location:    job?.location ?? "",
-      type:        job?.type ?? JobType.FULL_TIME,
-      openings:    job?.openings ?? 1,
-      deadline:    "2026-08-31",
+      type:        job?.employmentType ?? JobType.FULL_TIME,
+      openings:    job?.numOpenings ?? 1,
+      deadline:    defaultDeadline(job?.applicationDeadline),
       status:      job?.status ?? JobStatus.OPEN,
       description: job?.description ?? "",
       experience:  job?.experience ? parseInt(job.experience, 10) || undefined : undefined,
     },
   });
 
+  const [questions, setQuestions] = useState<ApplicationQuestion[]>(
+    Array.isArray(job?.applicationQuestions) ? job.applicationQuestions : []
+  );
+  const [questionsError, setQuestionsError] = useState<string | null>(null);
+
   const save = async (data: JobFormValues, isDraft?: boolean) => {
+    const problem = validateQuestions(questions);
+    setQuestionsError(problem);
+    if (problem) {
+      toast.error(problem);
+      return;
+    }
+    const applicationQuestions = serializeQuestions(questions);
     const statusToSave = isDraft ? JobStatus.DRAFT : (data.status === JobStatus.DRAFT ? JobStatus.OPEN : data.status);
 
     if (mode === "create") {
@@ -49,11 +76,12 @@ export function JobForm({ mode, job }: { mode: "create" | "edit"; job?: Job | an
           experience:     data.experience !== undefined ? `${data.experience} years` : undefined,
           description:    data.description ?? "",
           applicationDeadline: data.deadline ? new Date(data.deadline).toISOString() : new Date().toISOString(),
+          applicationQuestions,
         });
         toast.success(isDraft ? "Draft saved" : "Job published");
         router.back();
-      } catch (err) {
-        toast.error("Failed to create job");
+      } catch (err: any) {
+        toast.error(err?.response?.data?.message || "Failed to create job");
       }
     } else {
       try {
@@ -69,12 +97,13 @@ export function JobForm({ mode, job }: { mode: "create" | "edit"; job?: Job | an
             experience:  data.experience !== undefined ? `${data.experience} years` : undefined,
             description: data.description ?? "",
             applicationDeadline: data.deadline ? new Date(data.deadline).toISOString() : undefined,
+            applicationQuestions,
           }
         });
         toast.success(isDraft ? "Draft updated" : "Job updated");
         router.back();
-      } catch (err) {
-        toast.error("Failed to update job");
+      } catch (err: any) {
+        toast.error(err?.response?.data?.message || "Failed to update job");
       }
     }
   };
@@ -147,6 +176,27 @@ export function JobForm({ mode, job }: { mode: "create" | "edit"; job?: Job | an
               )}
             </div>
           </div>
+
+          <section aria-labelledby="questions-title" className="border-t border-border pt-8">
+            <div className="max-w-4xl">
+              <h3 id="questions-title" className="text-[14px] font-semibold">Application questions</h3>
+              <p className="mt-0.5 mb-4 text-[12.5px] text-muted-foreground">
+                Asked on the public application form. Answers appear on the candidate&apos;s profile.
+              </p>
+              <ApplicationQuestionsEditor
+                value={questions}
+                onChange={(next) => {
+                  setQuestions(next);
+                  if (questionsError) setQuestionsError(validateQuestions(next));
+                }}
+              />
+              {questionsError && (
+                <p role="alert" className="mt-2 text-[12px] text-destructive">
+                  {questionsError}
+                </p>
+              )}
+            </div>
+          </section>
         </div>
       </form>
 

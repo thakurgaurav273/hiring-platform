@@ -209,6 +209,23 @@ export const removeBrandingAsset = async (
     return toBrandingDTO(organization, branding);
 };
 
+// ─── Careers page settings ──────────────────────────────────────────────────
+
+export const getCareersSettings = async (organizationId: string) => {
+    const org = await loadOrganization(organizationId);
+    return { slug: org.slug, about: org.about };
+};
+
+export const updateCareersSettings = async (actor: Actor, data: { about: string | null }) => {
+    await assertCanManageBranding(actor);
+    const org = await prisma.organization.update({
+        where: { id: actor.organizationId },
+        data: { about: data.about },
+        select: { slug: true, about: true },
+    });
+    return org;
+};
+
 // ─── Per-user preferences ───────────────────────────────────────────────────
 
 export const getPreferences = async (userId: string) => {

@@ -23,6 +23,10 @@ export interface BrandingUpdate {
   radiusPreset?: RadiusPreset;
 }
 
+export interface CareersSettings {
+  slug: string;
+  about: string | null;
+}
 interface Envelope<T> {
   success: boolean;
   message: string;
@@ -53,6 +57,14 @@ export const organizationService = {
     return data.data;
   },
 
+  getCareersSettings: async (): Promise<CareersSettings> => {
+    const { data } = await api.get<Envelope<CareersSettings>>("/organization/careers");
+    return data.data;
+  },
+  updateCareersSettings: async (update: { about: string | null }): Promise<CareersSettings> => {
+    const { data } = await api.put<Envelope<CareersSettings>>("/organization/careers", update);
+    return data.data;
+  },
   removeAsset: async (kind: BrandingAssetKind): Promise<OrganizationBranding> => {
     const { data } = await api.delete<Envelope<OrganizationBranding>>(`/organization/branding/assets/${kind}`);
     return data.data;

@@ -8,6 +8,15 @@ let counter = 0;
 /** Deletes everything the branding tests create, in dependency order. */
 export async function resetDatabase() {
     await prisma.$transaction([
+        prisma.notification.deleteMany(),
+        prisma.dailyActivityCount.deleteMany(),
+        prisma.jobPublication.deleteMany(),
+        prisma.note.deleteMany(),
+        prisma.application.deleteMany(),
+        prisma.resume.deleteMany(),
+        prisma.candidate.deleteMany(),
+        prisma.jobInvitation.deleteMany(),
+        prisma.job.deleteMany(),
         prisma.userPreference.deleteMany(),
         prisma.userInvitation.deleteMany(),
         prisma.refreshToken.deleteMany(),

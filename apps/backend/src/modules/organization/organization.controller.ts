@@ -76,7 +76,27 @@ export const updatePreferences = async (req: Request, res: Response, next: NextF
     }
 };
 
+export const getCareersSettings = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const data = await organizationService.getCareersSettings(req.user!.organizationId);
+        return res.status(StatusCodes.OK).json({ success: true, message: "Careers settings fetched", data });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const updateCareersSettings = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const data = await organizationService.updateCareersSettings(actorFrom(req), req.body);
+        return res.status(StatusCodes.OK).json({ success: true, message: "Careers settings updated", data });
+    } catch (error) {
+        next(error);
+    }
+};
+
 export default {
+    getCareersSettings,
+    updateCareersSettings,
     getWorkspace,
     getBranding,
     updateBranding,

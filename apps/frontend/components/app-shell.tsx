@@ -11,6 +11,7 @@ import { SidebarContent } from "./sidebar";
 import { WorkspaceMark } from "./brand";
 import { useTheme } from "./theme-provider";
 import { useWorkspaceSync } from "@/hooks/useWorkspace";
+import { PLATFORM_BRANDING } from "@/lib/theme/platform";
 import { UserMenuButton, UserMenuContent, NotificationsMenu, ThemeToggle } from "./top-bar";
 import { useAppStore } from "@/store/app.store";
 
@@ -22,6 +23,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { brand } = useTheme();
   // Refresh organization branding and personal preferences from the server
   useWorkspaceSync();
+  // Inside the signed-in app the tab shows the workspace name. Public pages
+  // (careers, website) keep the title from their own metadata.
+  useEffect(() => {
+    document.title = `${brand.name} · ${PLATFORM_BRANDING.productName}`;
+  }, [brand.name]);
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 

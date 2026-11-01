@@ -9,7 +9,7 @@ import type { ThemeSettings } from "@/lib/theme/types";
  * so it renders identically on server and client (no hydration mismatch, no
  * flash). Light/dark follows the visitor's current appearance.
  */
-function ThemeScope({
+export function ThemeScope({
   settings,
   scope,
   className,

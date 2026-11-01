@@ -62,7 +62,7 @@ export const getInterviews = async (
         status?: "SCHEDULED" | "COMPLETED" | "CANCELLED" | "RESCHEDULED";
         orderBy?: "asc" | "desc";
     },
-    user: { id: string; role: string; department?: string | null }
+    user: { id: string; role: string; department?: string | null; organizationId: string }
 ) => {
     // Auto-complete past scheduled interviews before fetching
     await interviewsRepository.autoCompleteInterviews();
@@ -70,7 +70,8 @@ export const getInterviews = async (
     const page = query.page ? Number(query.page) : 1;
     const limit = query.limit ? Number(query.limit) : 20;
 
-    const where: Prisma.InterviewWhereInput = {};
+    // Tenant isolation; role rules below narrow further.
+    const where: Prisma.InterviewWhereInput = { AND: [{ application: { job: { organizationId: user.organizationId } } }] };
 
     if (query.status) {
         where.status = query.status;

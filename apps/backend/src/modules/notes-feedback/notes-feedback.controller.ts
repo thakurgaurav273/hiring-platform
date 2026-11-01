@@ -1,3 +1,4 @@
+import * as tenant from "../../common/tenant/tenant-guards";
 import { Request, Response, NextFunction } from "express";
 import { StatusCodes } from "http-status-codes";
 
@@ -9,6 +10,8 @@ export const createNote = async (
     next: NextFunction
 ) => {
     try {
+        await tenant.assertCandidateInOrg(req.body.candidateId, req.user!.organizationId);
+        if (req.body.applicationId) await tenant.assertApplicationInOrg(req.body.applicationId, req.user!.organizationId);
         const note = await notesService.createNote(
             req.body,
             req.user!.id
@@ -30,7 +33,7 @@ export const getAllNotes = async (
     next: NextFunction
 ) => {
     try {
-        const notes = await notesService.getAllNotes(req.query);
+        const notes = await notesService.getAllNotes(req.query, req.user!.organizationId);
 
         return res.status(StatusCodes.OK).json({
             success: true,
@@ -48,6 +51,7 @@ export const getNoteById = async (
     next: NextFunction
 ) => {
     try {
+        await tenant.assertNoteInOrg(req.params.id, req.user!.organizationId);
         const note = await notesService.getNoteById(
             req.params.id
         );
@@ -68,6 +72,7 @@ export const updateNote = async (
     next: NextFunction
 ) => {
     try {
+        await tenant.assertNoteInOrg(req.params.id, req.user!.organizationId);
         const note = await notesService.updateNote(
             req.params.id,
             req.body
@@ -89,6 +94,7 @@ export const deleteNote = async (
     next: NextFunction
 ) => {
     try {
+        await tenant.assertNoteInOrg(req.params.id, req.user!.organizationId);
         await notesService.deleteNote(req.params.id);
 
         return res.status(StatusCodes.OK).json({
@@ -106,6 +112,8 @@ export const createFeedback = async (
     next: NextFunction
 ) => {
     try {
+        await tenant.assertApplicationInOrg(req.body.applicationId, req.user!.organizationId);
+        if (req.body.interviewId) await tenant.assertInterviewInOrg(req.body.interviewId, req.user!.organizationId);
         const feedback = await notesService.createFeedback(
             req.body,
             req.user!.id
@@ -127,7 +135,7 @@ export const getAllFeedbacks = async (
     next: NextFunction
 ) => {
     try {
-        const feedbacks = await notesService.getAllFeedbacks(req.query);
+        const feedbacks = await notesService.getAllFeedbacks(req.query, req.user!.organizationId);
 
         return res.status(StatusCodes.OK).json({
             success: true,
@@ -145,6 +153,7 @@ export const getFeedbackById = async (
     next: NextFunction
 ) => {
     try {
+        await tenant.assertFeedbackInOrg(req.params.id, req.user!.organizationId);
         const feedback = await notesService.getFeedbackById(
             req.params.id
         );
@@ -165,6 +174,7 @@ export const updateFeedback = async (
     next: NextFunction
 ) => {
     try {
+        await tenant.assertFeedbackInOrg(req.params.id, req.user!.organizationId);
         const feedback = await notesService.updateFeedback(
             req.params.id,
             req.body
@@ -186,6 +196,7 @@ export const deleteFeedback = async (
     next: NextFunction
 ) => {
     try {
+        await tenant.assertFeedbackInOrg(req.params.id, req.user!.organizationId);
         await notesService.deleteFeedback(req.params.id);
 
         return res.status(StatusCodes.OK).json({

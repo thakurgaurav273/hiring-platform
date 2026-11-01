@@ -91,9 +91,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [css, appearance, favicon]);
 
   const brandName = branding?.displayName ?? PLATFORM_BRANDING.productName;
-  useEffect(() => {
-    document.title = branding ? `${brandName} · ${PLATFORM_BRANDING.productName}` : PLATFORM_BRANDING.productName;
-  }, [branding, brandName]);
 
   const value = useMemo<ThemeContextValue>(
     () => ({

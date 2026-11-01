@@ -3,7 +3,7 @@
 import { PageHeader, Avatar } from "@/components/app-shell";
 import { useAppStore } from "@/store/app.store";
 import { Guard } from "@/components/access-restricted";
-import { Users, Bell, Plus, MoreHorizontal, User, Sun, Loader2, Palette, Info } from "lucide-react";
+import { Users, Bell, Plus, MoreHorizontal, User, Sun, Loader2, Palette, Info, Globe } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -19,6 +19,7 @@ import {
   SettingsField,
 } from "@/features/settings/SettingsSections";
 import { BrandingSettings } from "@/features/settings/branding/BrandingSettings";
+import { CareersSettings } from "@/features/settings/CareersSettings";
 import { useTheme } from "@/components/theme-provider";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usersService } from "@/services/api/users.service";
@@ -31,7 +32,7 @@ const inviteSchema = z.object({
   role: z.enum(["administrator", "hiring_manager", "recruiter", "employee"]),
 });
 
-const TABS = ["profile", "appearance", "notifications", "branding", "users", "about"] as const;
+const TABS = ["profile", "appearance", "notifications", "branding", "careers", "users", "about"] as const;
 type SettingsTab = (typeof TABS)[number];
 
 export default function SettingsPage() {
@@ -117,6 +118,7 @@ function SettingsInner() {
     { v: "appearance" as const,    l: "My appearance",          i: Sun,     show: true },
     { v: "notifications" as const, l: "Notifications",          i: Bell,    show: true },
     { v: "branding" as const,      l: "Branding & Appearance",  i: Palette, show: canManageBranding },
+    { v: "careers" as const,       l: "Careers & embed",        i: Globe,   show: canManageBranding || can("jobs") },
     { v: "users" as const,         l: "Users",                  i: Users,   show: can("users") },
     { v: "about" as const,         l: "About",                  i: Info,    show: true },
   ].filter((t) => t.show);
@@ -161,6 +163,7 @@ function SettingsInner() {
         {ui.tab === "appearance"    && <ThemeSection />}
         {ui.tab === "notifications" && <NotificationsSection />}
         {ui.tab === "branding"      && <BrandingSettings />}
+        {ui.tab === "careers"       && (canManageBranding || can("jobs")) && <CareersSettings canEdit={canManageBranding} />}
         {ui.tab === "about"         && <AboutSection />}
 
         {ui.tab === "users" && can("users") && (

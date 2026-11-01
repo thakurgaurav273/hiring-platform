@@ -9,6 +9,7 @@ import { RecruitmentFunnel } from "@/components/reports/recruitment-funnel";
 import { FUNNEL_BASE_COLORS } from "@/constants/reports.constants";
 import { ReportsLineChart } from "@/features/reports/ReportsLineChart";
 import { ExportReportDialog } from "@/features/reports/ExportReportDialog";
+import { ApplicationsBySource } from "@/features/reports/ApplicationsBySource";
 import { Role } from "@/constants/enums";
 import { useReports } from "@/hooks/useReports";
 import type { FunnelStage } from "@/lib/types";
@@ -203,6 +204,13 @@ function ReportsInner() {
             </div>
           )}
         </div>
+
+        {/* ── Applications by source ─────────────────────────────────────────── */}
+        <ApplicationsBySource
+          rows={data?.applicationsBySource ?? []}
+          loading={isLoading}
+          scope={isManager ? user.department ?? "Department" : "Org-wide"}
+        />
 
         {/* ── Recruitment funnel ────────────────────────────────────────────── */}
         <div className="surface-card p-5">

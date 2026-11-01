@@ -1,3 +1,4 @@
+import * as tenant from "../../common/tenant/tenant-guards";
 import { Request, Response, NextFunction } from "express";
 import * as interviewsService from "./interviews.service";
 import { StatusCodes } from "http-status-codes";
@@ -21,6 +22,10 @@ export const createInterview = async (
     try {
         const parsedBody = createInterviewSchema.parse(req.body);
         const { interviewerIds, ...data } = parsedBody;
+
+        await tenant.assertApplicationInOrg(req.body.applicationId, req.user!.organizationId);
+
+        await tenant.assertUsersInOrg(req.body.interviewerIds ?? [], req.user!.organizationId);
 
         const interview = await interviewsService.createInterview({
             ...data,
@@ -62,6 +67,7 @@ export const getInterviewById = async (
 ) => {
     try {
         const { id } = req.params;
+        await tenant.assertInterviewInOrg(id, req.user!.organizationId);
         const interview = await interviewsService.getInterviewById(id);
         res.status(StatusCodes.OK).json(interview);
     } catch (error) {
@@ -88,6 +94,10 @@ export const updateInterview = async (
         
         const parsedBody = updateSchema.parse(req.body);
         const { interviewerIds, ...data } = parsedBody;
+        
+        await tenant.assertInterviewInOrg(id, req.user!.organizationId);
+        
+        await tenant.assertUsersInOrg(req.body.interviewerIds ?? [], req.user!.organizationId);
         
         const updated = await interviewsService.updateInterview(id, {
             ...data,
