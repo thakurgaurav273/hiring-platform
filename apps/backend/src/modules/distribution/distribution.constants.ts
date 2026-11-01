@@ -53,8 +53,9 @@ export const CHANNELS: ChannelDefinition[] = [
 export const channelDefinition = (channel: PublicationChannel) => CHANNELS.find((c) => c.channel === channel)!;
 
 /** Maps utm_source values from tracked links to application sources. */
-export const UTM_SOURCE_MAP: Record<string, "LINKEDIN" | "INDEED" | "NAUKRI" | "COMPANY_WEBSITE"> = {
+export const UTM_SOURCE_MAP: Record<string, "LINKEDIN" | "INDEED" | "NAUKRI" | "COMPANY_WEBSITE" | "EMAIL"> = {
     linkedin: "LINKEDIN",
+    email: "EMAIL",
     indeed: "INDEED",
     naukri: "NAUKRI",
     website: "COMPANY_WEBSITE",

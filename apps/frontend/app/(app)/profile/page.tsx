@@ -87,7 +87,7 @@ function ProfileInner() {
         title="Your profile"
         actions={
           <div className="flex items-center gap-3">
-            <Link href="/settings/change-password" className="h-9 inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-[12.5px] font-medium hover:bg-secondary">
+            <Link href="/settings?tab=security" className="h-9 inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-[12.5px] font-medium hover:bg-secondary">
               <Lock className="h-3.5 w-3.5" /> Change Password
             </Link>
             {ui.editing ? (

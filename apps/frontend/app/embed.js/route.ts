@@ -17,16 +17,31 @@
  * go to the hosted job page tagged with the embed source.
  */
 import { API_URL, SITE_URL } from "@/lib/careers";
+import { PLATFORM_BRANDING, THEME_PRESET_LIST, buildTheme } from "@/lib/theme";
+
+/**
+ * Accent colour per theme preset (light mode, contrast-adjusted), so the
+ * widget matches the careers page when an organization uses a preset
+ * without a custom brand colour.
+ */
+const PRESET_ACCENTS: Record<string, string> = Object.fromEntries(
+  THEME_PRESET_LIST.map((p) => [
+    p.id,
+    buildTheme({ ...PLATFORM_BRANDING.defaultTheme, themePreset: p.id, primaryColor: null, secondaryColor: null }, "light").tokens["--primary"],
+  ])
+);
 
 export const dynamic = "force-static";
 export const revalidate = 300;
 
-function widgetSource(apiUrl: string, siteUrl: string) {
+function widgetSource(apiUrl: string, siteUrl: string, accents: Record<string, string>) {
   return `/* Robin Talent jobs widget */
 (function () {
   "use strict";
   var API = ${JSON.stringify(apiUrl)};
   var SITE = ${JSON.stringify(siteUrl)};
+  var PRESET_ACCENTS = ${JSON.stringify(accents)};
+  var HEX = /^#[0-9a-fA-F]{6}$/;
   var script = document.currentScript;
   if (!script) {
     var all = document.querySelectorAll('script[src*="embed.js"][data-org]');
@@ -95,8 +110,10 @@ function widgetSource(apiUrl: string, siteUrl: string) {
     .then(function (payload) {
       var data = payload && payload.data;
       if (!data) throw new Error("bad payload");
-      if (!color && data.organization.branding && /^#[0-9a-fA-F]{6}$/.test(data.organization.branding.primaryColor || "")) {
-        style.textContent = css(data.organization.branding.primaryColor);
+      var b = data.organization.branding || {};
+      if (!color) {
+        var accent = HEX.test(b.primaryColor || "") ? b.primaryColor : PRESET_ACCENTS[b.themePreset];
+        if (accent && HEX.test(accent)) style.textContent = css(accent);
       }
       wrap.removeChild(loading);
       var jobs = data.jobs || [];
@@ -145,7 +162,7 @@ function widgetSource(apiUrl: string, siteUrl: string) {
 }
 
 export function GET() {
-  return new Response(widgetSource(API_URL, SITE_URL), {
+  return new Response(widgetSource(API_URL, SITE_URL, PRESET_ACCENTS), {
     headers: {
       "Content-Type": "application/javascript; charset=utf-8",
       "Cache-Control": "public, max-age=300, stale-while-revalidate=3600",

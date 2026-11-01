@@ -3,7 +3,12 @@ import prisma from "../../database/prisma-client";
 import notificationRepository, { CreateNotificationInput } from "./notification.repository";
 import { sendFcmMulticast } from "../../config/firebase-admin.config";
 
+/** Keys of User.notificationPreferences. A missing key means the user wants it. */
+export type NotificationPreference = "newApplications" | "stageChanges" | "interviewReminders";
+
 interface NotificationPayload {
+    /** When set, users who switched this preference off are skipped. Not stored. */
+    preference?: NotificationPreference;
     title: string;
     body: string;
     category: NotificationCategory;
@@ -24,7 +29,23 @@ async function deliverNotifications(
 
     try {
         // Deduplicate
-        const uniqueIds = [...new Set(userIds)];
+        let uniqueIds = [...new Set(userIds)];
+
+        // Respect per-user preferences
+        if (payload.preference) {
+            const key = payload.preference;
+            const users = await prisma.user.findMany({
+                where: { id: { in: uniqueIds } },
+                select: { id: true, notificationPreferences: true },
+            });
+            const optedOut = new Set(
+                users
+                    .filter((u) => (u.notificationPreferences as Record<string, unknown> | null)?.[key] === false)
+                    .map((u) => u.id)
+            );
+            uniqueIds = uniqueIds.filter((id) => !optedOut.has(id));
+            if (!uniqueIds.length) return;
+        }
 
         // 1. Persist to DB
         const records: CreateNotificationInput[] = uniqueIds.map((userId) => ({
@@ -155,7 +176,15 @@ export async function notifyNewCandidate(opts: {
     const body = `Applied for ${jobTitle}`;
     const link = `/candidates/${candidateId}`;
 
-    const payload: NotificationPayload = { title, body, category, link, entityId: candidateId, entityType: "Candidate" };
+    const payload: NotificationPayload = {
+        title,
+        body,
+        category,
+        link,
+        entityId: candidateId,
+        entityType: "Candidate",
+        preference: "newApplications",
+    };
 
     // Admin gets all notifications
     await notifyAdmins(payload, organizationId);
@@ -197,7 +226,15 @@ export async function notifyCandidateStageChange(opts: {
     const title = `${candidateName} moved to ${formatStage(toStage)}`;
     const body = `For ${jobTitle} · by ${changedByName}`;
     const link = `/candidates/${candidateId}`;
-    const payload: NotificationPayload = { title, body, category, link, entityId: candidateId, entityType: "Candidate" };
+    const payload: NotificationPayload = {
+        title,
+        body,
+        category,
+        link,
+        entityId: candidateId,
+        entityType: "Candidate",
+        preference: "stageChanges",
+    };
 
     await notifyAdmins(payload, organizationId);
     await notifyHiringManagersByDepartment(jobDepartment, payload, organizationId);

@@ -1,5 +1,6 @@
 "use client";
 
+import { errorMessage } from "@/lib/error-message";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -86,7 +87,7 @@ export function JobDistribution({ jobId, canManage }: { jobId: string; canManage
           toast.success(
             `${action === "publish" ? "Published on" : action === "pause" ? "Paused on" : "Removed from"} ${d.label.toLowerCase()}`
           ),
-        onError: (e: any) => toast.error(e?.response?.data?.message || "Couldn't update this destination"),
+        onError: (e: any) => toast.errorerrorMessage(e, "Couldn't update this destination"),
         onSettled: () => setBusy(null),
       }
     );

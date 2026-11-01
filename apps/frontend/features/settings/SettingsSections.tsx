@@ -1,232 +1,156 @@
 "use client";
 
-import { Avatar } from "@/components/app-shell";
-import { Building2, Check } from "lucide-react";
-import Link from "next/link";
-import { toast } from "sonner";
-import { useAppStore } from "@/store/app.store";
-import { THEME_OPTIONS } from "@/constants/settings.constants";
-import { useTheme } from "@/components/theme-provider";
-import { useUpdateAppearance } from "@/hooks/useWorkspace";
-import { PLATFORM_BRANDING } from "@/lib/theme/platform";
-import { PoweredBy } from "@/components/brand";
-import type { AppearanceMode } from "@/lib/theme/types";
+/**
+ * Shared building blocks for the Settings pages. Each settings section lives
+ * in features/settings/sections; Branding and Careers have their own folders.
+ */
+import { useEffect } from "react";
+import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-/** Shared card wrapper used by all tab sections */
+/** Card with a titled header, a body and an optional footer. */
 export function SettingsCard({
   title,
   description,
   action,
+  footer,
   children,
   className,
+  bodyClassName,
 }: {
   title: string;
   description?: React.ReactNode;
   action?: React.ReactNode;
+  footer?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  bodyClassName?: string;
 }) {
+  const id = `card-${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   return (
-    <section className={"surface-card p-6 " + (className ?? "")} aria-label={title}>
-      <div className="mb-5 flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-[14px] font-semibold tracking-tight">{title}</h2>
+    <section className={cn("surface-card overflow-hidden", className)} aria-labelledby={id}>
+      <div className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5 sm:px-6 sm:pt-6">
+        <div className="min-w-0">
+          <h3 id={id} className="text-[14px] font-semibold tracking-tight">
+            {title}
+          </h3>
           {description && <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">{description}</p>}
         </div>
         {action}
       </div>
-      {children}
+      <div className={cn("px-5 pb-5 pt-5 sm:px-6 sm:pb-6", bodyClassName)}>{children}</div>
+      {footer && <div className="border-t border-border bg-surface-2/50 px-5 py-3 sm:px-6">{footer}</div>}
     </section>
   );
 }
 
-/** Reusable form field label wrapper */
-export function SettingsField({ label, children }: { label: string; children: React.ReactNode }) {
+/** Title block at the top of a settings section. */
+export function SectionHeader({ title, description, action }: { title: string; description?: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <label className="block">
-      <span className="mb-1 block text-[11.5px] font-medium text-muted-foreground">{label}</span>
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+      <div className="min-w-0">
+        <h2 className="font-display text-[20px] font-semibold tracking-tight">{title}</h2>
+        {description && <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">{description}</p>}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+/** Label + control + optional hint/error, wired up for screen readers. */
+export function SettingsField({
+  label,
+  htmlFor,
+  hint,
+  error,
+  optional,
+  children,
+  className,
+}: {
+  label: string;
+  htmlFor?: string;
+  hint?: React.ReactNode;
+  error?: string;
+  optional?: boolean;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <label htmlFor={htmlFor} className="mb-1.5 flex items-baseline gap-1.5 text-[12.5px] font-medium">
+        {label}
+        {optional && <span className="text-[11.5px] font-normal text-muted-foreground">Optional</span>}
+      </label>
       {children}
-    </label>
+      {error ? (
+        <p id={htmlFor ? `${htmlFor}-error` : undefined} role="alert" className="mt-1.5 text-[11.5px] text-destructive">
+          {error}
+        </p>
+      ) : (
+        hint && (
+          <p id={htmlFor ? `${htmlFor}-hint` : undefined} className="mt-1.5 text-[11.5px] text-muted-foreground">
+            {hint}
+          </p>
+        )
+      )}
+    </div>
   );
 }
 
-/** Profile tab */
-export function ProfileSection() {
-  const user = useAppStore((s) => s.user)();
+/** Footer for forms: save status on the left, Discard and Save on the right. */
+export function FormFooter({
+  dirty,
+  saving,
+  onDiscard,
+  saveLabel = "Save changes",
+  savedLabel = "All changes saved",
+  disabled,
+}: {
+  dirty: boolean;
+  saving: boolean;
+  onDiscard?: () => void;
+  saveLabel?: string;
+  savedLabel?: string;
+  disabled?: boolean;
+}) {
   return (
-    <SettingsCard
-      title="My Profile"
-      action={
-        <div className="flex items-center gap-4">
-          <Link href="/profile" className="text-[13px] font-medium text-primary hover:underline">View profile</Link>
-          <Link href="/settings/change-password" className="text-[13px] font-medium text-primary hover:underline">Change password</Link>
-        </div>
-      }
-    >
-      <div className="flex items-center gap-4 py-4 px-2">
-        <Avatar name={user.name} seed={user.email} size={64} />
-        <div>
-          <h3 className="text-lg font-semibold">{user.name}</h3>
-          <p className="text-sm text-muted-foreground">{user.email}</p>
-          <span className="mt-2 inline-block rounded-full bg-secondary px-2.5 py-0.5 text-[11px] font-medium text-foreground">{user.role}</span>
-        </div>
-      </div>
-    </SettingsCard>
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="mr-auto text-[12px] text-muted-foreground" aria-live="polite">
+        {saving ? "Saving…" : dirty ? "Unsaved changes" : savedLabel}
+      </span>
+      {onDiscard && (
+        <Button type="button" variant="ghost" size="sm" onClick={onDiscard} disabled={!dirty || saving}>
+          Discard
+        </Button>
+      )}
+      <Button type="submit" size="sm" disabled={!dirty || saving || disabled}>
+        {saving && <Loader2 className="animate-spin" />} {saveLabel}
+      </Button>
+    </div>
   );
 }
 
-/**
- * Personal appearance. Stored per user and never changes organization branding;
- * "Organization default" follows whatever the organization admin has chosen.
- */
-export function ThemeSection() {
-  const workspace = useAppStore((s) => s.workspace);
-  const { mode } = useTheme();
-  const updateAppearance = useUpdateAppearance();
-  const personal = workspace?.preferences.appearance ?? null;
-  const orgDefault = workspace?.branding.defaultAppearance ?? "system";
-  const orgDefaultLabel = THEME_OPTIONS.find((o) => o.v === orgDefault)?.l ?? "System";
-
-  const select = (value: AppearanceMode | null) => {
-    if (value === personal) return;
-    updateAppearance.mutate(value, {
-      onSuccess: () => toast.success(value ? `Appearance: ${THEME_OPTIONS.find((o) => o.v === value)?.l}` : "Following organization default"),
-    });
-  };
-
-  const options: { v: AppearanceMode | null; l: string; d: string; i: React.ElementType }[] = [
-    { v: null, l: "Organization default", d: `Currently ${orgDefaultLabel.toLowerCase()}, set by your administrator.`, i: Building2 },
-    ...THEME_OPTIONS,
-  ];
-
-  return (
-    <SettingsCard
-      title="My appearance"
-      description={`Choose how ${PLATFORM_BRANDING.productName} looks for you. This only affects your account. Now showing ${mode} mode.`}
-    >
-      <div role="radiogroup" aria-label="Appearance" className="grid gap-3 sm:grid-cols-2">
-        {options.map((opt) => {
-          const Icon = opt.i;
-          const active = personal === opt.v;
-          return (
-            <button
-              key={opt.v ?? "org"}
-              role="radio"
-              aria-checked={active}
-              disabled={updateAppearance.isPending}
-              onClick={() => select(opt.v)}
-              className={
-                "relative flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition disabled:opacity-70 " +
-                (active
-                  ? "border-primary bg-primary/5 ring-2 ring-primary/25"
-                  : "border-border bg-surface-2 hover:border-border-strong hover:bg-surface")
-              }
-            >
-              <div className="flex w-full items-center justify-between">
-                <div className={"grid h-8 w-8 place-items-center rounded-md " + (active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground")}>
-                  <Icon className="h-4 w-4" />
-                </div>
-                <span className={"grid h-4 w-4 place-items-center rounded-full border " + (active ? "border-primary bg-primary" : "border-border-strong")}>
-                  {active && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
-                </span>
-              </div>
-              <div className="text-[13px] font-semibold">{opt.l}</div>
-              <div className="text-[11.5px] leading-relaxed text-muted-foreground">{opt.d}</div>
-            </button>
-          );
-        })}
-      </div>
-    </SettingsCard>
-  );
+/** Warns before leaving the page with unsaved edits. */
+export function useUnsavedChangesWarning(dirty: boolean) {
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
 }
 
-const NOTIFICATION_PREFS = [
-  { id: "newApplications", label: "New applications" },
-  { id: "stageChanges", label: "Stage changes" },
-  { id: "interviewReminders", label: "Interview reminders" }
-] as const;
+export const ROLE_LABELS: Record<string, string> = {
+  administrator: "Administrator",
+  hiring_manager: "Hiring manager",
+  recruiter: "Recruiter",
+  employee: "Employee",
+};
 
-export function NotificationsSection() {
-  const user = useAppStore((s) => s.user)();
-  const updateAuthUser = useAppStore((s) => s.updateAuthUser);
-  const prefs = user.notificationPreferences || {};
-
-  const handleToggle = async (id: string, checked: boolean) => {
-    const newPrefs = { ...prefs, [id]: checked };
-    // Optimistically update the store
-    updateAuthUser({ notificationPreferences: newPrefs });
-    
-    try {
-      const { usersService } = await import("@/services/api/users.service");
-      await usersService.updateProfile({ notificationPreferences: newPrefs });
-      toast.success("Notification preferences updated");
-    } catch (error) {
-      // Revert on error
-      updateAuthUser({ notificationPreferences: prefs });
-      toast.error("Failed to update preferences");
-    }
-  };
-
-  return (
-    <SettingsCard title="Notification preferences">
-      <div className="space-y-3">
-        {NOTIFICATION_PREFS.map((n) => {
-          // Default to true if not explicitly set
-          const isChecked = prefs[n.id] !== false;
-          
-          return (
-            <label key={n.id} className="flex items-center justify-between rounded-lg border border-border bg-surface-2 p-3">
-              <div>
-                <div className="text-[13px] font-medium">{n.label}</div>
-                <div className="text-[11.5px] text-muted-foreground">Email + in-app</div>
-              </div>
-              <input 
-                type="checkbox" 
-                checked={isChecked} 
-                onChange={(e) => handleToggle(n.id, e.target.checked)}
-                className="h-4 w-4 accent-[var(--color-primary)]" 
-              />
-            </label>
-          );
-        })}
-      </div>
-    </SettingsCard>
-  );
-}
-
-/** About: product information and platform attribution (platform-controlled, not tenant-editable). */
-export function AboutSection() {
-  const workspace = useAppStore((s) => s.workspace);
-  const { platformName, productName, productTagline, version, platformUrl, supportEmail } = PLATFORM_BRANDING;
-  const rows: [string, React.ReactNode][] = [
-    ["Product", productName],
-    ["Version", version],
-    ["Workspace", workspace ? workspace.branding.displayName : "—"],
-    ["Provided by", platformUrl ? <a href={platformUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{platformName}</a> : platformName],
-  ];
-  if (supportEmail) rows.push(["Support", <a key="s" href={`mailto:${supportEmail}`} className="text-primary hover:underline">{supportEmail}</a>]);
-
-  return (
-    <SettingsCard title={`About ${productName}`} description={productTagline}>
-      <dl className="divide-y divide-border rounded-lg border border-border">
-        {rows.map(([k, v]) => (
-          <div key={k} className="flex items-center justify-between gap-4 px-4 py-3 text-[13px]">
-            <dt className="text-muted-foreground">{k}</dt>
-            <dd className="text-right font-medium">{v}</dd>
-          </div>
-        ))}
-      </dl>
-      <div className="mt-4 flex flex-wrap gap-4 text-[12.5px]">
-        <Link href="/terms" className="font-medium text-primary hover:underline">Terms of Service</Link>
-        <Link href="/privacy" className="font-medium text-primary hover:underline">Privacy Policy</Link>
-        <Link href="/cookies" className="font-medium text-primary hover:underline">Cookie Policy</Link>
-      </div>
-      <div className="mt-5 flex items-center justify-between gap-4">
-        <PoweredBy placement="about" />
-        <span className="text-[11.5px] text-muted-foreground">
-          © {new Date().getFullYear()} {platformName}
-        </span>
-      </div>
-    </SettingsCard>
-  );
-}
+export const ROLE_DESCRIPTIONS: Record<string, string> = {
+  administrator: "Full access, including members, branding and all settings.",
+  hiring_manager: "Runs hiring for their department, with access to reports.",
+  recruiter: "Manages jobs, candidates, the pipeline and interviews.",
+  employee: "Refers candidates and joins interview panels.",
+};

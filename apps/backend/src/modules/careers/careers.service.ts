@@ -129,6 +129,7 @@ export function resolveSource(body: Pick<ApplyBody, "channel" | "utm_source">): 
     if (mapped === "LINKEDIN") return { type: "LINKEDIN", name: "LinkedIn" };
     if (mapped === "INDEED") return { type: "INDEED", name: "Indeed" };
     if (mapped === "NAUKRI") return { type: "NAUKRI", name: "Naukri" };
+    if (mapped === "EMAIL") return { type: "EMAIL", name: "Email" };
     if (mapped === "COMPANY_WEBSITE" || body.channel === "embed") return { type: "COMPANY_WEBSITE", name: "Company website" };
     if (utm) return { type: "OTHER", name: body.utm_source!.slice(0, 80) };
     return { type: "CAREERS_PAGE", name: "Robin Talent Careers" };

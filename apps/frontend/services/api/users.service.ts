@@ -26,8 +26,10 @@ export interface UpdateProfileResponse {
   data: UserProfile;
 }
 
+/** A member as returned by the admin users list. */
+export type Member = UserProfile & { isActive: boolean; createdAt: string };
 export interface PaginatedUsers {
-  users: UserProfile[];
+  users: Member[];
   pagination: {
     total: number;
     page: number;
@@ -42,7 +44,7 @@ export const usersService = {
     return response.data.data;
   },
 
-  getUsers: async (params?: { page?: number; limit?: number; role?: string; search?: string }): Promise<PaginatedUsers> => {
+  getUsers: async (params?: { page?: number; limit?: number; role?: string; search?: string; isActive?: "true" | "false" }): Promise<PaginatedUsers> => {
     const response = await api.get<{ data: PaginatedUsers }>("/users", { params });
     return response.data.data;
   },
@@ -67,6 +69,11 @@ export const usersService = {
     return response.data;
   },
 
+  /** Reactivates a deactivated member. */
+  reactivateUser: async (id: string): Promise<any> => {
+    const response = await api.patch(`/users/${id}`, { isActive: true });
+    return response.data;
+  },
   deleteUser: async (id: string): Promise<any> => {
     const response = await api.delete(`/users/${id}`);
     return response.data;

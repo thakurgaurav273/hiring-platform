@@ -101,8 +101,31 @@ export function jobUrl(orgSlug: string, job: { id: string; title: string }, para
   return url.toString();
 }
 
-/** Script tag customers paste where the jobs list should appear. */
-export const embedSnippet = (orgSlug: string) => `<script src="${SITE_URL}/embed.js" data-org="${orgSlug}"></script>`;
+export interface EmbedOptions {
+  layout?: "list" | "grid";
+  /** #RRGGBB; omitted = follow the organization's brand colour. */
+  color?: string | null;
+  limit?: number | null;
+  scheme?: "light" | "auto";
+}
+
+/** Script tag customers paste where the jobs list should appear. Only non-default options are written. */
+export function embedSnippet(orgSlug: string, opts: EmbedOptions = {}) {
+  const attrs = [`src="${SITE_URL}/embed.js"`, `data-org="${orgSlug}"`];
+  if (opts.layout === "grid") attrs.push(`data-layout="grid"`);
+  if (opts.color && /^#[0-9a-fA-F]{6}$/.test(opts.color)) attrs.push(`data-color="${opts.color.toUpperCase()}"`);
+  if (opts.limit && opts.limit > 0) attrs.push(`data-limit="${Math.floor(opts.limit)}"`);
+  if (opts.scheme === "auto") attrs.push(`data-scheme="auto"`);
+  return `<script ${attrs.join(" ")}></script>`;
+}
+
+/** Browser-side fetch of a public careers listing (no Next cache). */
+export async function fetchListing(orgSlug: string, channel?: "embed"): Promise<CareersListing> {
+  const qs = channel ? `?channel=${channel}` : "";
+  const res = await fetch(`${API_URL}/public/careers/${encodeURIComponent(orgSlug)}${qs}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Careers listing failed (${res.status})`);
+  return (await res.json()).data as CareersListing;
+}
 
 /** Server-side fetch of public careers data. Returns null on 404. */
 export async function fetchPublic<T>(path: string): Promise<T | null> {

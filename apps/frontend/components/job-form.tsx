@@ -1,5 +1,6 @@
 "use client";
 
+import { errorMessage } from "@/lib/error-message";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, type SubmitHandler } from "react-hook-form";
@@ -81,7 +82,7 @@ export function JobForm({ mode, job }: { mode: "create" | "edit"; job?: Job | an
         toast.success(isDraft ? "Draft saved" : "Job published");
         router.back();
       } catch (err: any) {
-        toast.error(err?.response?.data?.message || "Failed to create job");
+        toast.errorerrorMessage(err, "Failed to create job");
       }
     } else {
       try {
@@ -103,7 +104,7 @@ export function JobForm({ mode, job }: { mode: "create" | "edit"; job?: Job | an
         toast.success(isDraft ? "Draft updated" : "Job updated");
         router.back();
       } catch (err: any) {
-        toast.error(err?.response?.data?.message || "Failed to update job");
+        toast.errorerrorMessage(err, "Failed to update job");
       }
     }
   };
