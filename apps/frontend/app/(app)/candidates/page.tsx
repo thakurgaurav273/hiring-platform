@@ -9,7 +9,7 @@ import { CandidateRow } from "@/features/candidates/CandidateRow";
 import { Filters, multi, useResolvedFilters, type FilterValues } from "@/components/filters";
 import { CANDIDATE_FILTERS } from "@/constants/filters.config";
 import { ListToolbar, SearchField } from "@/components/list-toolbar";
-import { Button } from "@/components/ui/button";
+import { ListPage, TableCard, TablePagination, usePageSize } from "@/components/data-table";
 import type { Stage } from "@/lib/types";
 import { useCandidates } from "@/hooks/useCandidates";
 import { useJobs } from "@/hooks/useJobs";
@@ -38,12 +38,13 @@ function CandidatesInner() {
   const hasFilters = Object.values(filters).some((v) => v?.length);
   const setQ = (v: string) => setUi((f) => ({ ...f, q: v, page: 1 }));
   const setFilters = (v: FilterValues) => setUi((f) => ({ ...f, filters: v, page: 1 }));
-  const setPage = (fn: (p: number) => number) => setUi((f) => ({ ...f, page: fn(f.page) }));
+  const setPage = (page: number) => setUi((f) => ({ ...f, page }));
+  const [pageSize, setPageSize] = usePageSize("candidates");
 
   // Fetch from backend
-  const { data, isLoading } = useCandidates({
+  const { data, isLoading, isFetching } = useCandidates({
     page,
-    limit: 20,
+    limit: pageSize,
     search: q || undefined,
     department: multi(filters, "department"),
     stage: multi(filters, "stage") as Stage[] | undefined,
@@ -52,7 +53,6 @@ function CandidatesInner() {
 
   const candidatesRes = data?.data?.candidates ?? [];
   const pagination = data?.data?.pagination;
-  const totalPages = pagination?.totalPages ?? 1;
 
   const rows = useMemo(() => {
     return candidatesRes.map((app: any) => ({
@@ -69,24 +69,19 @@ function CandidatesInner() {
   }, [candidatesRes]);
 
 
+  const total = pagination?.total ?? rows.length;
+
   return (
-    <div>
-      <PageHeader
-        breadcrumbs={[{ label: "Workspace" }, { label: "Candidates" }]}
-        title="Candidates"
-        description="Review and screen active applications for open positions"
-      />
+    <ListPage
+      header={<PageHeader title="Candidates" description="Review and screen active applications for open positions" />}
+    >
+      <ListToolbar className="shrink-0" search={<SearchField value={q} onChange={setQ} placeholder="Search by name or email" label="Search candidates" />}>
+        <Filters config={CANDIDATE_FILTERS} data={filterData} value={filters} onChange={setFilters} />
+      </ListToolbar>
 
-      <div className="space-y-4 px-4 py-5 md:px-8">
-        <ListToolbar
-          search={<SearchField value={q} onChange={setQ} placeholder="Search by name or email" label="Search candidates" />}
-          summary={isLoading ? null : `${pagination?.total ?? rows.length} ${(pagination?.total ?? rows.length) === 1 ? "candidate" : "candidates"}`}
-        >
-          <Filters config={CANDIDATE_FILTERS} data={filterData} value={filters} onChange={setFilters} />
-        </ListToolbar>
-
-        <div className="surface-card overflow-hidden">
-          <div className="hidden grid-cols-6 gap-x-4 border-b border-border bg-surface-2/60 px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground lg:grid">
+      <TableCard
+        header={
+          <div className="hidden grid-cols-6 gap-x-4 px-4 py-2.5 lg:grid">
             <div>Candidate</div>
             <div>Job</div>
             <div>Location</div>
@@ -94,10 +89,27 @@ function CandidatesInner() {
             <div>Applied</div>
             <div className="text-right">Stage</div>
           </div>
-
-          <div className="flex flex-col divide-y divide-border">
+        }
+        footer={
+          !isLoading && total > 0 ? (
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              noun={total === 1 ? "candidate" : "candidates"}
+              onPageChange={setPage}
+              onPageSizeChange={(n) => {
+                setPageSize(n);
+                setPage(1);
+              }}
+            />
+          ) : undefined
+        }
+      >
+        <div aria-busy={isFetching} className={isFetching && !isLoading ? "opacity-70 transition-opacity" : "transition-opacity"}>
+          <div role="list" aria-label="Candidates" className="flex flex-col divide-y divide-border">
             {isLoading ? (
-              <Skeleton.Row count={6} />
+              <Skeleton.Row count={Math.min(pageSize, 8)} />
             ) : rows.length === 0 ? (
               <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
                 <span className="grid size-10 place-items-center rounded-full bg-secondary text-muted-foreground">
@@ -112,24 +124,8 @@ function CandidatesInner() {
               rows.map((c: any) => <CandidateRow key={`${c.id}-${c.jobId}`} candidate={c} />)
             )}
           </div>
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between border-t border-border bg-surface-2/40 px-4 py-2.5 text-[12px] text-muted-foreground">
-              <div className="tabular-nums">
-                Page {page} of {totalPages}
-              </div>
-              <div className="flex gap-1">
-                <Button variant="ghost" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="h-7 text-[12px]">
-                  Previous
-                </Button>
-                <Button variant="ghost" size="sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="h-7 text-[12px]">
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
         </div>
-      </div>
-    </div>
+      </TableCard>
+    </ListPage>
   );
 }

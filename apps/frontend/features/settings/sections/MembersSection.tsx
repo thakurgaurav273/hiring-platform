@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Check, ChevronLeft, ChevronRight, Loader2, MoreHorizontal, Search, UserPlus, Users } from "lucide-react";
+import { Check, Loader2, MoreHorizontal, Search, UserPlus, Users } from "lucide-react";
 import { Avatar } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,12 +25,12 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAppStore } from "@/store/app.store";
 import { usersService, type Member } from "@/services/api/users.service";
+import { TablePagination, headerText, usePageSize } from "@/components/data-table";
 import { ROLE_DESCRIPTIONS, ROLE_LABELS, SectionHeader, SettingsField } from "@/features/settings/SettingsSections";
 import { cn } from "@/lib/utils";
 
 const ROLES = ["administrator", "hiring_manager", "recruiter", "employee"] as const;
 type RoleKey = (typeof ROLES)[number];
-const PAGE_SIZE = 20;
 
 const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email address"),
@@ -108,10 +108,11 @@ export function MembersSection() {
   const [role, setRole] = useState<"" | RoleKey>("");
   const [status, setStatus] = useState<"" | "true" | "false">("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = usePageSize("members");
   const q = useDebounced(search.trim());
   useEffect(() => setPage(1), [q, role, status]);
 
-  const params = { page, limit: PAGE_SIZE, ...(q ? { search: q } : {}), ...(role ? { role } : {}), ...(status ? { isActive: status } : {}) };
+  const params = { page, limit: pageSize, ...(q ? { search: q } : {}), ...(role ? { role } : {}), ...(status ? { isActive: status } : {}) };
   const { data, isLoading, isFetching, error } = useQuery({
     queryKey: ["users", params],
     queryFn: () => usersService.getUsers(params),
@@ -119,7 +120,6 @@ export function MembersSection() {
   });
   const members = data?.users ?? [];
   const total = data?.pagination.total ?? 0;
-  const totalPages = data?.pagination.totalPages ?? 1;
   const filtered = !!(q || role || status);
 
   // Dialog state
@@ -184,9 +184,9 @@ export function MembersSection() {
         }
       />
 
-      <section aria-label="Members" className="surface-card overflow-hidden">
+      <section aria-label="Members" className="surface-card relative flex max-h-[calc(100vh-19rem)] min-h-[280px] flex-col overflow-hidden">
         {/* Toolbar */}
-        <div className="flex flex-col gap-2 border-b border-border p-3 sm:flex-row sm:items-center sm:p-4">
+        <div className="flex shrink-0 flex-col gap-2 border-b border-border p-3 sm:flex-row sm:items-center sm:p-4">
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <input
@@ -215,14 +215,15 @@ export function MembersSection() {
           </div>
         </div>
 
-        {/* Column headings (desktop) */}
-        <div className="hidden grid-cols-[minmax(0,1fr)_150px_110px_110px_44px] gap-4 border-b border-border bg-surface-2/50 px-4 py-2 text-[11px] font-medium uppercase tracking-[0.1em] text-muted-foreground md:grid">
+        {/* Column headings (desktop) — outside the scroll area */}
+        <div className={`hidden shrink-0 grid-cols-[minmax(0,1fr)_150px_110px_110px_44px] gap-4 overflow-hidden border-b border-border bg-surface-2 px-4 py-2 [scrollbar-gutter:stable] md:grid ${headerText}`}>
           <span>Member</span>
           <span>Role</span>
           <span>Status</span>
           <span>Joined</span>
           <span className="sr-only">Actions</span>
         </div>
+        <div className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-gutter:stable] scrollbar-thin">
 
         {isLoading ? (
           <div className="divide-y divide-border">
@@ -333,26 +334,22 @@ export function MembersSection() {
           </ul>
         )}
 
+        </div>
+
         {/* Footer */}
         {total > 0 && (
-          <div className="flex items-center justify-between gap-3 border-t border-border bg-surface-2/50 px-4 py-2.5 text-[12px] text-muted-foreground">
-            <span aria-live="polite">
-              {total} {total === 1 ? "member" : "members"}
-              {filtered ? " found" : ""}
-            </span>
-            {totalPages > 1 && (
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon-sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} aria-label="Previous page">
-                  <ChevronLeft />
-                </Button>
-                <span className="tabular-nums">
-                  {page} / {totalPages}
-                </span>
-                <Button variant="ghost" size="icon-sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} aria-label="Next page">
-                  <ChevronRight />
-                </Button>
-              </div>
-            )}
+          <div className="shrink-0 border-t border-border bg-surface">
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              noun={total === 1 ? "member" : "members"}
+              onPageChange={setPage}
+              onPageSizeChange={(n) => {
+                setPageSize(n);
+                setPage(1);
+              }}
+            />
           </div>
         )}
       </section>

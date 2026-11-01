@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Briefcase, ChevronLeft, ChevronRight, MapPin, Search, UserPlus, Users } from "lucide-react";
+import { ArrowRight, Briefcase, MapPin, Search, UserPlus, Users } from "lucide-react";
 import { PageHeader, Avatar } from "@/components/app-shell";
 import { Guard } from "@/components/access-restricted";
 import { Filters, useResolvedFilters, type FilterValues } from "@/components/filters";
 import { ListToolbar, SearchField } from "@/components/list-toolbar";
+import { TableCard, TablePagination, paginate, usePageSize } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/skeletons";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -49,11 +50,13 @@ function ReferralsDashboard() {
   const openJobs = useMemo(() => jobsData?.data.jobs || [], [jobsData]);
 
   const [page, setPage] = useState(1);
-  const { data: candidatesData, isLoading: candidatesLoading } = useCandidates({ referredBy: user?.id, page, limit: 15 });
+  const [refSize, setRefSize] = usePageSize("my-referrals");
+  const { data: candidatesData, isLoading: candidatesLoading } = useCandidates({ referredBy: user?.id, page, limit: refSize });
   const myReferrals = candidatesData?.data?.candidates || [];
   const pagination = candidatesData?.data?.pagination;
-  const totalPages = pagination?.totalPages ?? 1;
   const referralTotal = pagination?.total ?? myReferrals.length;
+  const [jobsPage, setJobsPage] = useState(1);
+  const [jobsSize, setJobsSize] = usePageSize("referral-roles");
 
   const [q, setQ] = useState("");
   const [rawFilters, setRawFilters] = useState<FilterValues>({});
@@ -79,10 +82,12 @@ function ReferralsDashboard() {
       (locF.length === 0 || (!!j.location && locF.includes(j.location)))
   );
   const filtering = !!query || deptF.length > 0 || locF.length > 0;
+  const pagedRoles = paginate(results, jobsPage, jobsSize);
+  useEffect(() => setJobsPage(1), [query, rawFilters]);
 
   return (
     <div>
-      <Tabs value={tab} onValueChange={(v) => setTab(v as "jobs" | "mine")}>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as "jobs" | "mine")} className="flex flex-col gap-0 lg:h-[calc(100vh-4rem)]">
         <PageHeader
           title="Referrals"
           description="Refer people from your network and follow how they're doing."
@@ -110,16 +115,32 @@ function ReferralsDashboard() {
           }
         />
 
-        <TabsContent value="jobs" className="mt-0">
-          <div className="space-y-4 px-4 py-5 md:px-8">
+        <TabsContent value="jobs" className="mt-0 flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 py-5 md:px-8">
             <ListToolbar
+              className="shrink-0"
               search={<SearchField value={q} onChange={setQ} placeholder="Search roles, skills or teams" label="Search open roles" />}
-              summary={jobsLoading ? null : filtering ? `${results.length} of ${openJobs.length} roles` : `${openJobs.length} open ${openJobs.length === 1 ? "role" : "roles"}`}
             >
               <Filters config={REFERRAL_JOB_FILTERS} data={filterData} value={filters} onChange={setRawFilters} />
             </ListToolbar>
 
-            <div className="surface-card overflow-hidden">
+            <TableCard
+              footer={
+                !jobsLoading && results.length > 0 ? (
+                  <TablePagination
+                    page={pagedRoles.page}
+                    pageSize={jobsSize}
+                    total={results.length}
+                    noun={results.length === 1 ? "role" : "roles"}
+                    onPageChange={setJobsPage}
+                    onPageSizeChange={(n) => {
+                      setJobsSize(n);
+                      setJobsPage(1);
+                    }}
+                  />
+                ) : undefined
+              }
+            >
               {jobsLoading ? (
                 <div className="divide-y divide-border">
                   {[0, 1, 2].map((i) => (
@@ -153,7 +174,7 @@ function ReferralsDashboard() {
                 )
               ) : (
                 <ul className="divide-y divide-border">
-                  {results.map((j) => (
+                  {pagedRoles.rows.map((j) => (
                     <li key={j.id}>
                       <div
                         role="link"
@@ -188,19 +209,37 @@ function ReferralsDashboard() {
                   ))}
                 </ul>
               )}
-            </div>
+            </TableCard>
           </div>
         </TabsContent>
 
-        <TabsContent value="mine" className="mt-0">
-          <div className="space-y-4 px-4 py-5 md:px-8">
-            <div className="surface-card overflow-hidden">
-              <div className="hidden grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_120px_140px] gap-4 border-b border-border bg-surface-2/60 px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground md:grid">
+        <TabsContent value="mine" className="mt-0 flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 py-5 md:px-8">
+            <TableCard
+              header={
+                <div className="hidden grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_120px_140px] gap-4 px-4 py-2.5 md:grid">
                 <div>Candidate</div>
                 <div>Role</div>
                 <div>Referred</div>
                 <div className="text-right">Stage</div>
               </div>
+              }
+              footer={
+                !candidatesLoading && referralTotal > 0 ? (
+                  <TablePagination
+                    page={page}
+                    pageSize={refSize}
+                    total={referralTotal}
+                    noun={referralTotal === 1 ? "referral" : "referrals"}
+                    onPageChange={setPage}
+                    onPageSizeChange={(n) => {
+                      setRefSize(n);
+                      setPage(1);
+                    }}
+                  />
+                ) : undefined
+              }
+            >
               {candidatesLoading ? (
                 <Skeleton.Row count={3} />
               ) : myReferrals.length === 0 ? (
@@ -249,22 +288,7 @@ function ReferralsDashboard() {
                   })}
                 </ul>
               )}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between border-t border-border bg-surface-2/40 px-4 py-2.5 text-[12px] text-muted-foreground">
-                  <span className="tabular-nums">
-                    Page {page} of {totalPages}
-                  </span>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon-sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)} aria-label="Previous page">
-                      <ChevronLeft />
-                    </Button>
-                    <Button variant="ghost" size="icon-sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} aria-label="Next page">
-                      <ChevronRight />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
+            </TableCard>
           </div>
         </TabsContent>
       </Tabs>

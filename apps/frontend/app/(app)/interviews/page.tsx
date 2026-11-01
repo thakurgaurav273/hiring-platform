@@ -8,6 +8,7 @@ import { Guard } from "@/components/access-restricted";
 import { PageHeader } from "@/components/app-shell";
 import { Filters, useResolvedFilters, type FilterValues } from "@/components/filters";
 import { ListToolbar, SearchField } from "@/components/list-toolbar";
+import { TableCard, TablePagination, paginate, usePageSize } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/skeletons";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -73,9 +74,9 @@ function InterviewsInner() {
   const view: View = requested && VIEWS.includes(requested) ? requested : "upcoming";
   const setView = (v: View) => router.replace(v === "upcoming" ? "/interviews" : `/interviews?view=${v}`, { scroll: false });
 
-  const upcomingQ = useInterviews({ status: "SCHEDULED", orderBy: "asc", limit: 100 });
-  const pastQ = useInterviews({ status: "COMPLETED", orderBy: "desc", limit: 100 });
-  const cancelledQ = useInterviews({ status: "CANCELLED", orderBy: "desc", limit: 50 });
+  const upcomingQ = useInterviews({ status: "SCHEDULED", orderBy: "asc", limit: 200 });
+  const pastQ = useInterviews({ status: "COMPLETED", orderBy: "desc", limit: 200 });
+  const cancelledQ = useInterviews({ status: "CANCELLED", orderBy: "desc", limit: 200 });
   const upcoming = useMemo(() => upcomingQ.data?.interviews ?? [], [upcomingQ.data]);
   const past = useMemo(() => pastQ.data?.interviews ?? [], [pastQ.data]);
   const cancelled = useMemo(() => cancelledQ.data?.interviews ?? [], [cancelledQ.data]);
@@ -123,7 +124,11 @@ function InterviewsInner() {
   const source = view === "upcoming" ? upcoming : view === "past" ? past : cancelled;
   const loading = view === "upcoming" ? upcomingQ.isLoading : view === "past" ? pastQ.isLoading : cancelledQ.isLoading;
   const shown = source.filter(matches);
-  const groups = groupByDay(shown);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = usePageSize("interviews");
+  useEffect(() => setPage(1), [view, query, rawFilters]);
+  const paged = paginate(shown, page, pageSize);
+  const groups = groupByDay(paged.rows);
 
   // Stats (unfiltered)
   const now = new Date();
@@ -143,8 +148,8 @@ function InterviewsInner() {
   const count = (n: number) => <span className="ml-1.5 rounded-full bg-secondary px-1.5 text-[11px] tabular-nums text-muted-foreground">{n}</span>;
 
   return (
-    <div>
-      <Tabs value={view} onValueChange={(v) => setView(v as View)}>
+    <div className="flex flex-col lg:h-[calc(100vh-4rem)]">
+      <Tabs value={view} onValueChange={(v) => setView(v as View)} className="shrink-0">
         <PageHeader
           title="Interviews"
           description="Your interview schedule, panels and feedback."
@@ -164,9 +169,9 @@ function InterviewsInner() {
         />
       </Tabs>
 
-      <div className="space-y-4 px-4 py-5 md:px-8">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 py-5 md:px-8">
         {/* Summary */}
-        <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
+        <div className="grid shrink-0 grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
           <Stat
             icon={CalendarClock}
             tone="[--tone:var(--color-primary)]"
@@ -186,13 +191,41 @@ function InterviewsInner() {
         </div>
 
         <ListToolbar
+          className="shrink-0"
           search={<SearchField value={q} onChange={setQ} placeholder="Search candidate, job or panel" label="Search interviews" />}
-          summary={loading ? null : filtering ? `${shown.length} of ${source.length}` : `${source.length} ${source.length === 1 ? "interview" : "interviews"}`}
+          summary={!loading && filtering ? `${shown.length} of ${source.length} match` : undefined}
         >
           <Filters config={INTERVIEW_FILTERS} data={filterData} value={filters} onChange={setRawFilters} />
         </ListToolbar>
 
-        <div className="surface-card overflow-hidden">
+        <TableCard
+          header={
+            view !== "upcoming" && !loading && shown.length > 0 ? (
+              <div className="hidden grid-cols-[84px_minmax(0,1.5fr)_110px_minmax(0,1fr)_170px] gap-x-4 px-4 py-2.5 md:grid">
+                <span>When</span>
+                <span>Candidate</span>
+                <span>Round</span>
+                <span>Panel</span>
+                <span className="text-right">{view === "past" ? "Feedback" : "Status"}</span>
+              </div>
+            ) : undefined
+          }
+          footer={
+            !loading && shown.length > 0 ? (
+              <TablePagination
+                page={paged.page}
+                pageSize={pageSize}
+                total={shown.length}
+                noun={shown.length === 1 ? "interview" : "interviews"}
+                onPageChange={setPage}
+                onPageSizeChange={(n) => {
+                  setPageSize(n);
+                  setPage(1);
+                }}
+              />
+            ) : undefined
+          }
+        >
           {loading ? (
             <Skeleton.InterviewRow count={5} variant={view === "upcoming" ? "upcoming" : "completed"} />
           ) : shown.length === 0 ? (
@@ -235,13 +268,7 @@ function InterviewsInner() {
               const label = dayLabel(g.date);
               return (
                 <section key={g.key} aria-label={`${label.primary} ${label.secondary}`}>
-                  <div
-                    className={cn(
-                      "flex items-baseline gap-2 bg-surface-2/60 px-4 py-2 text-[12px]",
-                      gi > 0 && "border-t border-border",
-                      "border-b border-border"
-                    )}
-                  >
+                  <div className={cn("sticky top-0 z-10 flex items-baseline gap-2 border-b border-border bg-surface-2 px-4 py-2 text-[12px]", gi > 0 && "border-t")}>
                     <span className={cn("font-semibold", dayOffset(g.date) === 0 && "text-primary")}>{label.primary}</span>
                     {label.secondary && <span className="text-muted-foreground">{label.secondary}</span>}
                     <span className="ml-auto tabular-nums text-muted-foreground">
@@ -258,21 +285,14 @@ function InterviewsInner() {
             })
           ) : (
             <>
-              <div className="hidden grid-cols-[84px_minmax(0,1.5fr)_110px_minmax(0,1fr)_170px] gap-x-4 border-b border-border bg-surface-2/60 px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground md:grid">
-                <span>When</span>
-                <span>Candidate</span>
-                <span>Round</span>
-                <span>Panel</span>
-                <span className="text-right">{view === "past" ? "Feedback" : "Status"}</span>
-              </div>
               <ul className="divide-y divide-border">
-                {shown.map((i) => (
+                {paged.rows.map((i) => (
                   <PastRow key={i.id} interview={i} onOpen={() => setOpenId(i.id)} />
                 ))}
               </ul>
             </>
           )}
-        </div>
+        </TableCard>
       </div>
 
       <InterviewDrawer interview={openInterview} open={!!openInterview} onOpenChange={(o) => !o && setOpenId(null)} canManage={canManage} />

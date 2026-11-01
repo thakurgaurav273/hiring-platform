@@ -34,12 +34,24 @@ function StatusPill({ status }: { status: Job["status"] }) {
   );
 }
 
+/** Column template shared by the jobs header and rows (Department is admin-only). */
+export function jobGridCols(role: Role) {
+  return role === Role.ADMINISTRATOR
+    ? "grid-cols-[minmax(0,1fr)_72px_36px] sm:grid-cols-[minmax(0,1fr)_150px_72px_36px] md:grid-cols-[minmax(0,1fr)_150px_150px_72px_36px] lg:grid-cols-[minmax(0,1fr)_150px_150px_80px_90px_72px_36px]"
+    : "grid-cols-[minmax(0,1fr)_72px_36px] md:grid-cols-[minmax(0,1fr)_150px_72px_36px] lg:grid-cols-[minmax(0,1fr)_150px_80px_90px_72px_36px]";
+}
+
 export function JobTableRow({ job: j, role, onDelete }: JobTableRowProps) {
   const router = useRouter();
+  const open = () => router.push(`/jobs/${j.id}`);
 
   return (
-    <tr className="group cursor-pointer transition-colors hover:bg-secondary/40" onClick={() => router.push(`/jobs/${j.id}`)}>
-      <td className="px-4 py-3">
+    <div
+      role="listitem"
+      className={`group grid cursor-pointer items-center gap-x-4 px-4 py-3 transition-colors hover:bg-secondary/40 ${jobGridCols(role)}`}
+      onClick={open}
+    >
+      <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-2">
           <Link
             href={`/jobs/${j.id}`}
@@ -61,24 +73,24 @@ export function JobTableRow({ job: j, role, onDelete }: JobTableRowProps) {
             <Users className="size-3" aria-hidden="true" /> {j._count?.applications ?? 0}
           </span>
         </div>
-      </td>
+      </div>
 
       {role === Role.ADMINISTRATOR && (
-        <td className="hidden px-4 py-3 text-muted-foreground sm:table-cell">
+        <div className="hidden min-w-0 truncate text-[13px] text-muted-foreground sm:block">
           <span className="inline-flex items-center gap-1.5">
-            <Briefcase className="size-3.5" aria-hidden="true" /> {j.department}
+            <Briefcase className="size-3.5 shrink-0" aria-hidden="true" /> {j.department}
           </span>
-        </td>
+        </div>
       )}
-      <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
+      <div className="hidden truncate text-[13px] text-muted-foreground md:block">
         {j.createdBy ? `${j.createdBy.firstName} ${j.createdBy.lastName}` : "–"}
-      </td>
-      <td className="hidden px-4 py-3 text-right tabular-nums text-muted-foreground lg:table-cell">{j.numOpenings}</td>
-      <td className="hidden px-4 py-3 text-right tabular-nums lg:table-cell">{j._count?.applications ?? 0}</td>
-      <td className="whitespace-nowrap px-4 py-3 text-right text-[12.5px] text-muted-foreground">
+      </div>
+      <div className="hidden text-right text-[13px] tabular-nums text-muted-foreground lg:block">{j.numOpenings}</div>
+      <div className="hidden text-right text-[13px] tabular-nums lg:block">{j._count?.applications ?? 0}</div>
+      <div className="whitespace-nowrap text-right text-[12.5px] text-muted-foreground">
         {new Date(j.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-      </td>
-      <td className="px-2 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+      </div>
+      <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
         {[Role.ADMINISTRATOR, Role.HIRING_MANAGER].includes(role) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -94,7 +106,7 @@ export function JobTableRow({ job: j, role, onDelete }: JobTableRowProps) {
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-      </td>
-    </tr>
+      </div>
+    </div>
   );
 }

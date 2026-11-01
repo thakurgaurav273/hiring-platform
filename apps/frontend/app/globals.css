@@ -265,6 +265,11 @@
   background-color: color-mix(in oklab, var(--tone, var(--color-muted-foreground)) 12%, var(--color-surface));
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tone, var(--color-muted-foreground)) 26%, var(--color-surface));
 }
+/* Slim, theme-aware scrollbars for scrolling table bodies. */
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--color-muted-foreground) 40%, transparent) transparent;
+}
 @utility tone-soft {
   color: color-mix(in oklab, var(--tone, var(--color-muted-foreground)) 80%, var(--color-foreground));
   background-color: color-mix(in oklab, var(--tone, var(--color-muted-foreground)) 12%, var(--color-surface));
