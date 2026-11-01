@@ -1,78 +1,63 @@
 "use client";
 
-import { Inbox, Star, Send, Archive, PenSquare, X } from "lucide-react";
+import { Archive, Inbox, Send, Star, type LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-export type Folder = "inbox" | "starred" | "sent" | "drafts" | "archive";
+/** Folders the backend actually supports. (There is no drafts storage yet.) */
+export type Folder = "inbox" | "starred" | "sent" | "archive";
 
-export interface MailSidebarProps {
-  currentFolder: Folder;
-  onSelectFolder: (folder: Folder) => void;
-  isOpen: boolean;
-  onClose: () => void;
-  counts: {
-    inbox: number;
-    starred: number;
-    sent: number;
-    drafts: number;
-    archive: number;
-  };
+export const FOLDERS: { key: Folder; label: string; icon: LucideIcon; empty: string; hint: string }[] = [
+  { key: "inbox", label: "Inbox", icon: Inbox, empty: "Your inbox is empty", hint: "Replies from candidates land here." },
+  { key: "starred", label: "Starred", icon: Star, empty: "No starred conversations", hint: "Star a conversation to keep it close." },
+  { key: "sent", label: "Sent", icon: Send, empty: "Nothing sent yet", hint: "Emails you send to candidates appear here." },
+  { key: "archive", label: "Archive", icon: Archive, empty: "Archive is empty", hint: "Archived conversations are kept here." },
+];
+
+export interface MailboxCountsLike {
+  inbox: number;
+  starred: number;
+  sent: number;
+  archive: number;
 }
 
-export function MailSidebar({
-  currentFolder,
-  onSelectFolder,
-  isOpen,
-  onClose,
+/** Folder list: a rail on wide screens, a scrollable tab row on small ones. */
+export function MailFolders({
+  current,
+  onSelect,
   counts,
-}: MailSidebarProps) {
-  const folders = [
-    { k: "inbox" as const, l: "Inbox", i: Inbox, count: counts.inbox },
-    { k: "starred" as const, l: "Starred", i: Star, count: counts.starred },
-    { k: "sent" as const, l: "Sent", i: Send, count: counts.sent },
-    { k: "drafts" as const, l: "Drafts", i: PenSquare, count: counts.drafts },
-    { k: "archive" as const, l: "Archive", i: Archive, count: counts.archive },
-  ] as const;
-
-  if (!isOpen) return null;
-
+  orientation,
+}: {
+  current: Folder;
+  onSelect: (folder: Folder) => void;
+  counts: MailboxCountsLike;
+  orientation: "vertical" | "horizontal";
+}) {
+  const vertical = orientation === "vertical";
   return (
-    <div className="fixed inset-0 z-40">
-      <div 
-        className="absolute inset-0 bg-foreground/25 backdrop-blur-[2px]" 
-        onClick={onClose} 
-      />
-      <aside className="animate-in-up absolute inset-y-0 left-0 flex w-[260px] flex-col border-r border-border bg-surface-2 p-3 shadow-lg">
-        <div className="mb-2 flex items-center justify-between px-1">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Folders
-          </div>
-          <button 
-            onClick={onClose} 
-            className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground" 
-            aria-label="Close folders"
+    <nav aria-label="Mail folders" className={vertical ? "space-y-0.5" : "-mx-1 flex gap-1 overflow-x-auto px-1"}>
+      {FOLDERS.map((f) => {
+        const active = current === f.key;
+        const count = counts[f.key];
+        return (
+          <button
+            key={f.key}
+            type="button"
+            onClick={() => onSelect(f.key)}
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "flex items-center gap-2.5 rounded-lg text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+              vertical ? "w-full px-3 py-2" : "shrink-0 px-3 py-1.5",
+              active ? "bg-surface text-foreground shadow-xs ring-1 ring-border" : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+            )}
           >
-            <X className="h-4 w-4" />
+            <f.icon className={cn("size-4 shrink-0", active && "text-primary")} aria-hidden="true" />
+            <span className={vertical ? "flex-1 text-left" : ""}>{f.label}</span>
+            {count > 0 && (
+              <span className="rounded-full bg-secondary px-1.5 text-[11px] tabular-nums text-muted-foreground">{count}</span>
+            )}
           </button>
-        </div>
-        {folders.map((f) => (
-          <button 
-            key={f.k} 
-            onClick={() => {
-              onSelectFolder(f.k);
-              onClose();
-            }} 
-            className={`flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-[13px] ${
-              currentFolder === f.k 
-                ? "bg-sidebar-accent font-medium" 
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-            }`}
-          >
-            <f.i className="h-4 w-4" />
-            <span className="flex-1 text-left">{f.l}</span>
-            {f.count > 0 && <span className="text-[11px]">{f.count}</span>}
-          </button>
-        ))}
-      </aside>
-    </div>
+        );
+      })}
+    </nav>
   );
 }

@@ -12,6 +12,8 @@ import { Avatar } from "@/components/app-shell";
 import { useAppStore } from "@/store/app.store";
 import { usersService } from "@/services/api/users.service";
 import { Role } from "@/constants/enums";
+import { useMe } from "@/hooks/useMe";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   FormFooter,
   ROLE_LABELS,
@@ -40,6 +42,7 @@ export function ProfileSection() {
   const updateAuthUser = useAppStore((s) => s.updateAuthUser);
   const workspace = useAppStore((s) => s.workspace);
   const isAdmin = authUser?.role === Role.ADMINISTRATOR;
+  const me = useMe();
 
   const fromUser = (): Values => ({
     firstName: authUser?.firstName ?? "",
@@ -94,10 +97,21 @@ export function ProfileSection() {
       });
       toast.success("Profile saved");
     },
-    onError: (e: any) => toast.errorerrorMessage(e, "Couldn't save your profile"),
+    onError: (e: any) => toast.error(errorMessage(e, "Couldn't save your profile")),
   });
 
   if (!authUser) return null;
+  if (me.isLoading) {
+    return (
+      <div>
+        <SectionHeader title="Profile" description="How you appear to teammates across the workspace, in interview invites and on activity." />
+        <div className="space-y-6">
+          <Skeleton className="h-28 w-full" />
+          <Skeleton className="h-80 w-full" />
+        </div>
+      </div>
+    );
+  }
   const first = watch("firstName");
   const last = watch("lastName");
   const title = watch("title");

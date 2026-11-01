@@ -7,6 +7,8 @@ import { CalendarClock, GitBranch, Info, UserPlus } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useAppStore } from "@/store/app.store";
 import { usersService } from "@/services/api/users.service";
+import { useMe } from "@/hooks/useMe";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SectionHeader, SettingsCard } from "@/features/settings/SettingsSections";
 
 /**
@@ -40,6 +42,7 @@ export function NotificationsSection() {
   const authUser = useAppStore((s) => s.authUser);
   const updateAuthUser = useAppStore((s) => s.updateAuthUser);
   const [saving, setSaving] = useState<PrefId | null>(null);
+  const me = useMe();
   const prefs = authUser?.notificationPreferences ?? {};
 
   const toggle = async (id: PrefId, on: boolean) => {
@@ -52,7 +55,7 @@ export function NotificationsSection() {
       updateAuthUser({ notificationPreferences: saved.notificationPreferences ?? next });
     } catch (e: any) {
       updateAuthUser({ notificationPreferences: previous });
-      toast.errorerrorMessage(e, "Couldn't update notifications");
+      toast.error(errorMessage(e, "Couldn't update notifications"));
     } finally {
       setSaving(null);
     }
@@ -66,8 +69,19 @@ export function NotificationsSection() {
       />
 
       <SettingsCard title="Activity" description="Changes save as soon as you flip a switch." bodyClassName="px-0 pb-0 pt-3 sm:px-0 sm:pb-0">
-        <ul className="divide-y divide-border border-t border-border">
-          {PREFS.map((p) => {
+        <ul className="divide-y divide-border border-t border-border" aria-busy={me.isLoading}>
+          {me.isLoading
+            ? PREFS.map((p) => (
+                <li key={p.id} className="flex items-center gap-4 px-5 py-4 sm:px-6">
+                  <Skeleton className="size-9 rounded-lg" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-3.5 w-48" />
+                    <Skeleton className="h-3 w-72 max-w-full" />
+                  </div>
+                  <Skeleton className="h-5 w-9 rounded-full" />
+                </li>
+              ))
+            : PREFS.map((p) => {
             const on = prefs[p.id] !== false;
             const id = `pref-${p.id}`;
             return (

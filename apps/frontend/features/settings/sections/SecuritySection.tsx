@@ -65,6 +65,7 @@ export function SecuritySection() {
     handleSubmit,
     reset,
     watch,
+    setError,
     formState: { errors },
   } = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" } });
 
@@ -74,7 +75,14 @@ export function SecuritySection() {
       reset();
       toast.success("Password changed. Use the new one next time you sign in.");
     },
-    onError: (e: any) => toast.errorerrorMessage(e, "Couldn't change your password"),
+    onError: (e) => {
+      const msg = errorMessage(e, "Couldn't change your password");
+      if (/old password|current password/i.test(msg)) {
+        setError("currentPassword", { message: "That isn't your current password" }, { shouldFocus: true });
+      } else {
+        toast.error(msg);
+      }
+    },
   });
 
   const pw = watch("newPassword") ?? "";
@@ -147,8 +155,10 @@ export function SecuritySection() {
                       >
                         {ok && <Check className="size-2.5" />}
                       </span>
-                      {c.label}
-                      {c.required && <span className="text-[11px] text-muted-foreground">(required)</span>}
+                      <span className="min-w-0">
+                        {c.label}
+                        {c.required && <span className="ml-1 text-[11px] text-muted-foreground">(required)</span>}
+                      </span>
                       <span className="sr-only">{ok ? "met" : "not met"}</span>
                     </li>
                   );

@@ -27,10 +27,21 @@ export interface Interview {
     createdAt: string;
     updatedAt: string;
     panelists: InterviewPanelist[];
+    /** Feedback submitted for this interview (summary only). */
+    feedbacks?: InterviewFeedbackSummary[];
     application?: {
         candidate: { id: string; firstName: string; lastName: string; email: string };
-        job: { id: string; title: string };
+        job: { id: string; title: string; department?: string };
     };
+}
+
+export type Recommendation = "STRONG_YES" | "YES" | "NEUTRAL" | "NO" | "STRONG_NO";
+
+export interface InterviewFeedbackSummary {
+    id: string;
+    interviewerId: string;
+    rating: number;
+    recommendation: Recommendation;
 }
 
 export interface InterviewsResponse {
@@ -73,7 +84,7 @@ export const getInterviewById = async (id: string): Promise<Interview> => {
 
 export const updateInterview = async (
     id: string,
-    data: Partial<Omit<Interview, "id" | "createdAt" | "updatedAt" | "applicationId" | "panelists" | "application">> & { interviewerIds?: string[] }
+    data: Partial<Omit<Interview, "id" | "createdAt" | "updatedAt" | "applicationId" | "panelists" | "application" | "feedbacks">> & { interviewerIds?: string[] }
 ): Promise<Interview> => {
     const res = await api.patch(`/interviews/${id}`, data);
     return res.data;

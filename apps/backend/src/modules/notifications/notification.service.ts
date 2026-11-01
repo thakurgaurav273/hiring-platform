@@ -393,8 +393,15 @@ export async function notifyInterviewUpdated(opts: {
         entityType: "Interview",
     };
 
-    await notifyAdmins(payload);
-    await notifyHiringManagersByDepartment(jobDepartment, payload);
+    // Scope to the interview's organization so other tenants are never notified.
+    const interview = await prisma.interview.findUnique({
+        where: { id: interviewId },
+        select: { application: { select: { job: { select: { organizationId: true } } } } },
+    });
+    const organizationId = interview?.application.job.organizationId;
+    if (!organizationId) return;
+    await notifyAdmins(payload, organizationId);
+    await notifyHiringManagersByDepartment(jobDepartment, payload, organizationId);
 
     if (panelistIds.length) {
         await notifyUsers(panelistIds, {

@@ -51,7 +51,16 @@ export function Filters<TData>({
 
   return (
     <>
-      <Button variant="outline" onClick={() => setOpen(true)} className={cn("h-9 gap-2 bg-surface", className)} aria-haspopup="dialog">
+      <Button
+        variant="ghost"
+        onClick={() => setOpen(true)}
+        className={cn(
+          "h-9 gap-1.5 px-3 text-[13px] font-medium",
+          count > 0 ? "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary" : "bg-secondary/70 text-foreground hover:bg-secondary",
+          className
+        )}
+        aria-haspopup="dialog"
+      >
         <SlidersHorizontal className="size-4" />
         Filters
         {count > 0 && (

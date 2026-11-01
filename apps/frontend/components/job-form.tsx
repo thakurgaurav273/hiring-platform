@@ -82,7 +82,7 @@ export function JobForm({ mode, job }: { mode: "create" | "edit"; job?: Job | an
         toast.success(isDraft ? "Draft saved" : "Job published");
         router.back();
       } catch (err: any) {
-        toast.errorerrorMessage(err, "Failed to create job");
+        toast.error(errorMessage(err, "Failed to create job"));
       }
     } else {
       try {
@@ -104,7 +104,7 @@ export function JobForm({ mode, job }: { mode: "create" | "edit"; job?: Job | an
         toast.success(isDraft ? "Draft updated" : "Job updated");
         router.back();
       } catch (err: any) {
-        toast.errorerrorMessage(err, "Failed to update job");
+        toast.error(errorMessage(err, "Failed to update job"));
       }
     }
   };

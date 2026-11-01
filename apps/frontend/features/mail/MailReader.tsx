@@ -6,7 +6,6 @@ import { useForm, type SubmitHandler } from "react-hook-form";
 import { ArrowLeft, Archive, Reply, Forward, Paperclip, Sparkles, Send, X, Trash2 } from "lucide-react";
 import { Avatar } from "@/components/app-shell";
 import { toast } from "sonner";
-import { candidateById } from "@/lib/mock-data";
 import { useUpdateThread, useReplyToEmail, useDeleteThread } from "@/hooks/useMail";
 import { type Thread } from "@/services/api/mail.service";
 import { useState } from "react";
@@ -53,7 +52,7 @@ export function MailReader({ thread }: MailReaderProps) {
     setAttachments((p) => [...p, ...items]);
   };
 
-  const cand = thread?.candidateId ? candidateById(thread.candidateId) : null;
+  const cand = thread?.candidate ?? null;
   const lastMsg = thread?.messages[thread.messages.length - 1];
   const replyToAddress = lastMsg?.from === user.email ? lastMsg?.to : lastMsg?.from;
 
@@ -127,7 +126,7 @@ export function MailReader({ thread }: MailReaderProps) {
                 {cand.name}
               </Link>
             ) : (
-              "Unknown"
+              thread.messages[0]?.to || "Unknown"
             )}
           </div>
         </div>
@@ -167,7 +166,7 @@ export function MailReader({ thread }: MailReaderProps) {
             <div key={i} className="group">
               <div className="flex items-center justify-between py-3">
                 <div className="flex items-center gap-3">
-                  <Avatar name={m.fromName || m.from} size={36} />
+                  <Avatar name={m.fromName || m.from || "Unknown"} seed={m.from} size={36} />
                   <div>
                     <div className="text-[14px] font-medium text-foreground">
                       {m.fromName || (m.from.includes('<') ? m.from.split('<')[0].trim() : (m.from.includes('@') ? m.from.split('@')[0] : m.from))}
@@ -175,7 +174,9 @@ export function MailReader({ thread }: MailReaderProps) {
                     <div className="text-[11.5px] text-muted-foreground">to {m.to}</div>
                   </div>
                 </div>
-                <div className="text-[11.5px] text-muted-foreground">{m.at}</div>
+                <time dateTime={m.at} className="shrink-0 text-[11.5px] text-muted-foreground">
+                  {new Date(m.at).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+                </time>
               </div>
               <div className="pl-12 pr-4 text-[14px] leading-relaxed text-foreground/90 whitespace-pre-wrap pb-4">
                 {m.body}

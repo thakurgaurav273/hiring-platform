@@ -5,10 +5,9 @@ import { Guard } from "@/components/access-restricted";
 import { PageHeader } from "@/components/app-shell";
 import { useAppStore } from "@/store/app.store";
 import { STAGES, canMoveStage } from "@/lib/mock-data";
-import { Search } from "lucide-react";
 import { Filters, multi, single, useResolvedFilters, type FilterValues } from "@/components/filters";
 import { PIPELINE_FILTERS } from "@/constants/filters.config";
-import { Input } from "@/components/ui/input";
+import { ListToolbar, SearchField } from "@/components/list-toolbar";
 import { useMemo, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/skeletons";
@@ -92,17 +91,16 @@ function PipelineInner() {
       />
 
       {/* Filter bar */}
-      <div className="border-b border-border bg-background/60 px-4 py-3 md:px-8">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[220px] flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input type="search" value={q} onChange={(e) => set("q", e.target.value)} placeholder="Search in this job…" aria-label="Search candidates in this job" className="pl-9" />
-          </div>
+      <div className="px-4 pt-4 md:px-8">
+        <ListToolbar
+          search={<SearchField value={q} onChange={(v) => set("q", v)} placeholder="Search in this job" label="Search candidates in this job" />}
+          summary={loading ? null : `${filtered.length} ${filtered.length === 1 ? "candidate" : "candidates"}`}
+        >
           <Filters config={PIPELINE_FILTERS} data={filterData} value={filters} onChange={(v) => set("filters", v)} />
-        </div>
+        </ListToolbar>
       </div>
       <div className="flex-1 overflow-x-auto overflow-y-hidden px-4 pb-6 md:px-8">
-        <div className="flex h-full gap-3 pt-6">
+        <div className="flex h-full gap-3 pt-4">
           {loading && <div className="flex h-full gap-3 pt-6"><Skeleton.PipelineColumn count={6} /></div>}
           {!loading && STAGES.map((s) => {
             const cards = filtered.filter((c) => c.stage === s);

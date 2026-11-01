@@ -188,7 +188,7 @@ export function CareersSettings({ canEdit }: { canEdit: boolean }) {
       queryClient.setQueryData(["organization", "careers"], saved);
       toast.success("Saved. The public page picks it up within a minute.");
     },
-    onError: (e: any) => toast.errorerrorMessage(e, "Couldn't save the careers page"),
+    onError: (e: any) => toast.error(errorMessage(e, "Couldn't save the careers page")),
   });
 
   // Widget options

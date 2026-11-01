@@ -149,3 +149,57 @@ export const REFERRAL_JOB_FILTERS: FilterConfig<ReferralJobFilterData> = {
     },
   ],
 };
+
+// ─── Interviews ─────────────────────────────────────────────────────────────
+
+export interface InterviewFilterData {
+  jobs: { id: string; title: string }[];
+  interviewers: { id: string; name: string }[];
+}
+
+export const INTERVIEW_TYPE_LABELS: Record<string, string> = {
+  SCREENING: "Screening",
+  TECHNICAL: "Technical",
+  HR: "HR",
+  MANAGERIAL: "Managerial",
+  FINAL: "Final",
+};
+
+export const INTERVIEW_FILTERS: FilterConfig<InterviewFilterData> = {
+  title: "Filter interviews",
+  description: "Narrow the list by round, job or panel member.",
+  fields: [
+    {
+      id: "type",
+      label: "Round",
+      type: "multi",
+      options: Object.entries(INTERVIEW_TYPE_LABELS).map(([value, label]) => ({ value, label })),
+    },
+    {
+      id: "job",
+      label: "Job",
+      type: "multi",
+      searchable: true,
+      options: ({ data }) => [...data.jobs].sort((a, b) => a.title.localeCompare(b.title)).map((j) => ({ value: j.id, label: j.title })),
+      emptyText: "No jobs with interviews yet.",
+    },
+    {
+      id: "interviewer",
+      label: "Panel member",
+      type: "multi",
+      searchable: true,
+      options: ({ data }) => [...data.interviewers].sort((a, b) => a.name.localeCompare(b.name)).map((i) => ({ value: i.id, label: i.name })),
+      emptyText: "No panel members yet.",
+    },
+    {
+      id: "feedback",
+      label: "Feedback",
+      type: "single",
+      allLabel: "Any",
+      options: [
+        { value: "awaiting", label: "Awaiting feedback" },
+        { value: "complete", label: "All feedback in" },
+      ],
+    },
+  ],
+};

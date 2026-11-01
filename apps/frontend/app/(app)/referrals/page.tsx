@@ -1,18 +1,21 @@
 "use client";
 
-import { PageHeader, Avatar } from "@/components/app-shell";
-import { useAppStore } from "@/store/app.store";
 import Link from "next/link";
-import { Guard } from "@/components/access-restricted";
-import { Search as SearchIcon, Briefcase, MapPin, Clock, UserPlus } from "lucide-react";
-import { Filters, useResolvedFilters, type FilterValues } from "@/components/filters";
-import { REFERRAL_JOB_FILTERS } from "@/constants/filters.config";
-import { Input } from "@/components/ui/input";
 import { useMemo, useState } from "react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useRouter } from "next/navigation";
+import { ArrowRight, Briefcase, ChevronLeft, ChevronRight, MapPin, Search, UserPlus, Users } from "lucide-react";
+import { PageHeader, Avatar } from "@/components/app-shell";
+import { Guard } from "@/components/access-restricted";
+import { Filters, useResolvedFilters, type FilterValues } from "@/components/filters";
+import { ListToolbar, SearchField } from "@/components/list-toolbar";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/skeletons";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StageBadge } from "@/components/stage-badge";
+import { REFERRAL_JOB_FILTERS } from "@/constants/filters.config";
 import { JobStatus } from "@/constants/enums";
+import { EMPLOYMENT_LABELS } from "@/lib/careers";
+import { useAppStore } from "@/store/app.store";
 import { useJobs } from "@/hooks/useJobs";
 import { useCandidates } from "@/hooks/useCandidates";
 
@@ -24,9 +27,23 @@ export default function ReferralsPage() {
   );
 }
 
+function EmptyState({ icon: Icon, title, body, action }: { icon: typeof Search; title: string; body: string; action?: React.ReactNode }) {
+  return (
+    <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
+      <span className="grid size-10 place-items-center rounded-full bg-secondary text-muted-foreground">
+        <Icon className="size-5" aria-hidden="true" />
+      </span>
+      <p className="text-[13.5px] font-medium">{title}</p>
+      <p className="max-w-sm text-[12.5px] text-muted-foreground">{body}</p>
+      {action && <div className="mt-2">{action}</div>}
+    </div>
+  );
+}
+
 function ReferralsDashboard() {
   const router = useRouter();
-  const user = useAppStore(s => s.authUser);
+  const user = useAppStore((s) => s.authUser);
+  const [tab, setTab] = useState<"jobs" | "mine">("jobs");
 
   const { data: jobsData, isLoading: jobsLoading } = useJobs({ status: JobStatus.OPEN, isReferral: true });
   const openJobs = useMemo(() => jobsData?.data.jobs || [], [jobsData]);
@@ -36,11 +53,10 @@ function ReferralsDashboard() {
   const myReferrals = candidatesData?.data?.candidates || [];
   const pagination = candidatesData?.data?.pagination;
   const totalPages = pagination?.totalPages ?? 1;
+  const referralTotal = pagination?.total ?? myReferrals.length;
 
-  const [ui, setUi] = useState({
-    q: "",
-    filters: {} as FilterValues,
-  });
+  const [q, setQ] = useState("");
+  const [rawFilters, setRawFilters] = useState<FilterValues>({});
   const filterData = useMemo(
     () => ({
       departments: openJobs.map((j) => j.department),
@@ -48,154 +64,209 @@ function ReferralsDashboard() {
     }),
     [openJobs]
   );
-  const { values: filters } = useResolvedFilters(REFERRAL_JOB_FILTERS, filterData, ui.filters);
+  const { values: filters } = useResolvedFilters(REFERRAL_JOB_FILTERS, filterData, rawFilters);
   const deptF = filters.department ?? [];
   const locF = filters.location ?? [];
-  const results = openJobs.filter((j) =>
-    (!ui.q || j.title.toLowerCase().includes(ui.q.toLowerCase()) || j.description.toLowerCase().includes(ui.q.toLowerCase())) &&
-    (deptF.length === 0 || deptF.includes(j.department)) &&
-    (locF.length === 0 || (!!j.location && locF.includes(j.location)))
+  const query = q.trim().toLowerCase();
+  const results = openJobs.filter(
+    (j) =>
+      (!query ||
+        j.title.toLowerCase().includes(query) ||
+        j.department.toLowerCase().includes(query) ||
+        (j.skills ?? []).some((s) => s.toLowerCase().includes(query)) ||
+        j.description.toLowerCase().includes(query)) &&
+      (deptF.length === 0 || deptF.includes(j.department)) &&
+      (locF.length === 0 || (!!j.location && locF.includes(j.location)))
   );
+  const filtering = !!query || deptF.length > 0 || locF.length > 0;
 
   return (
     <div>
-      <Tabs defaultValue="jobs">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as "jobs" | "mine")}>
         <PageHeader
-          breadcrumbs={[{ label: "Referrals" }]}
-          title="Employee Referrals"
-          description="Refer your network and track their progress"
+          title="Referrals"
+          description="Refer people from your network and follow how they're doing."
           actions={
-            <Link href="/referrals/new" className="h-9 inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 text-[12.5px] font-medium text-primary-foreground hover:opacity-90">
-              <UserPlus className="h-3.5 w-3.5" /> Add Referral
+            <Link
+              href="/referrals/new"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-[12.5px] font-medium text-primary-foreground hover:bg-primary-hover"
+            >
+              <UserPlus className="size-3.5" /> Refer someone
             </Link>
           }
           tabs={
             <TabsList variant="line" className="gap-0 rounded-none bg-transparent p-0">
-              <TabsTrigger value="jobs" className="rounded-none px-4 pb-3 pt-1 text-[13px]">Jobs</TabsTrigger>
-              <TabsTrigger value="my-referrals" className="rounded-none px-4 pb-3 pt-1 text-[13px]">My Referrals</TabsTrigger>
+              <TabsTrigger value="jobs" className="rounded-none px-3 pb-2.5 pt-1 text-[13px]">
+                Open roles
+                <span className="ml-1.5 rounded-full bg-secondary px-1.5 text-[11px] tabular-nums text-muted-foreground">{openJobs.length}</span>
+              </TabsTrigger>
+              <TabsTrigger value="mine" className="rounded-none px-3 pb-2.5 pt-1 text-[13px]">
+                My referrals
+                {referralTotal > 0 && (
+                  <span className="ml-1.5 rounded-full bg-secondary px-1.5 text-[11px] tabular-nums text-muted-foreground">{referralTotal}</span>
+                )}
+              </TabsTrigger>
             </TabsList>
           }
         />
 
-        <div className="w-full">
-          <TabsContent value="jobs" className="mt-0">
-            <div className="px-4 pt-6 md:px-8">
-              <div className="surface-card p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="relative min-w-[240px] flex-1">
-                    <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input type="search" value={ui.q} onChange={(e) => setUi(p => ({ ...p, q: e.target.value }))} placeholder="Search roles, skills, teams…" aria-label="Search open roles" className="pl-9" />
-                  </div>
-                  <Filters config={REFERRAL_JOB_FILTERS} data={filterData} value={filters} onChange={(v) => setUi(p => ({ ...p, filters: v }))} />
-                </div>
-              </div>
-            <div className="mt-4 text-[12px] text-muted-foreground">Showing {results.length} of {openJobs.length} open roles</div>
-            </div>
+        <TabsContent value="jobs" className="mt-0">
+          <div className="space-y-4 px-4 py-5 md:px-8">
+            <ListToolbar
+              search={<SearchField value={q} onChange={setQ} placeholder="Search roles, skills or teams" label="Search open roles" />}
+              summary={jobsLoading ? null : filtering ? `${results.length} of ${openJobs.length} roles` : `${openJobs.length} open ${openJobs.length === 1 ? "role" : "roles"}`}
+            >
+              <Filters config={REFERRAL_JOB_FILTERS} data={filterData} value={filters} onChange={setRawFilters} />
+            </ListToolbar>
 
-            {jobsLoading ? (
-              <div className="px-4 py-8 md:px-8 text-center text-muted-foreground text-[13px]">Loading jobs...</div>
-            ) : (
-              <>
-                <div className="mt-2 flex flex-col">
-                  <div className="divide-y divide-border border-y border-border">
-                    {results.map((j) => (
-                      <div
-                        key={j.id}
-                        onClick={() => router.push(`/referrals/job/${j.id}`)}
-                        className="group flex flex-col md:flex-row md:items-center justify-between gap-4 px-4 py-5 md:px-8 transition hover:bg-secondary/40 cursor-pointer"
+            <div className="surface-card overflow-hidden">
+              {jobsLoading ? (
+                <div className="divide-y divide-border">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="px-4 py-3.5">
+                      <Skeleton className="h-4 w-56" />
+                      <Skeleton className="mt-2 h-3 w-72" />
+                    </div>
+                  ))}
+                </div>
+              ) : results.length === 0 ? (
+                filtering ? (
+                  <EmptyState
+                    icon={Search}
+                    title="No roles match your search"
+                    body="Try a different keyword or clear the filters."
+                    action={
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setQ("");
+                          setRawFilters({});
+                        }}
                       >
-                        <div className="flex-1 min-w-0">
-                          <Link href={`/referrals/job/${j.id}`} className="block text-[15px] font-medium text-foreground hover:underline group-hover:text-primary">
-                            {j.title}
-                          </Link>
-                          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-muted-foreground">
-                            <span className="flex items-center gap-1.5"><Briefcase className="h-3.5 w-3.5" /> {j.department}</span>
-                            {j.location && <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> {j.location}</span>}
-                            <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> {j.employmentType}</span>
+                        Clear search and filters
+                      </Button>
+                    }
+                  />
+                ) : (
+                  <EmptyState icon={Briefcase} title="No open roles right now" body="When your team opens a role for referrals, it shows up here." />
+                )
+              ) : (
+                <ul className="divide-y divide-border">
+                  {results.map((j) => (
+                    <li key={j.id}>
+                      <div
+                        role="link"
+                        tabIndex={0}
+                        onClick={() => router.push(`/referrals/job/${j.id}`)}
+                        onKeyDown={(e) => e.key === "Enter" && router.push(`/referrals/job/${j.id}`)}
+                        className="group flex cursor-pointer items-center gap-4 px-4 py-3 transition-colors hover:bg-secondary/40 focus-visible:bg-secondary/40 focus-visible:outline-none"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[13.5px] font-medium group-hover:text-primary">{j.title}</div>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-muted-foreground">
+                            <span className="inline-flex items-center gap-1">
+                              <Briefcase className="size-3" aria-hidden="true" /> {j.department}
+                            </span>
+                            {j.location && (
+                              <span className="inline-flex items-center gap-1">
+                                <MapPin className="size-3" aria-hidden="true" /> {j.location}
+                              </span>
+                            )}
+                            <span>{EMPLOYMENT_LABELS[j.employmentType] ?? j.employmentType}</span>
+                            <span className="sm:hidden">· Posted {new Date(j.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
                           </div>
                         </div>
-                        <div className="text-[12px] text-muted-foreground md:text-right shrink-0">
+                        <span className="hidden shrink-0 text-[12px] text-muted-foreground sm:block">
                           Posted {new Date(j.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {results.length === 0 && (
-                  <div className="mt-10 grid place-items-center rounded-xl border border-dashed border-border p-10 text-center">
-                    <div className="text-[13px] font-medium">No matching roles</div>
-                    <div className="mt-1 text-[12px] text-muted-foreground">Try broadening your filters or searching a different keyword.</div>
-                  </div>
-                )}
-              </>
-            )}
-          </TabsContent>
-
-          <TabsContent value="my-referrals" className="mt-0">
-            <div className="mx-auto max-w-6xl px-4 py-6 md:px-8">
-            {candidatesLoading ? (
-              <div className="py-8 text-center text-muted-foreground text-[13px]">Loading referrals...</div>
-            ) : myReferrals.length > 0 ? (
-              <div>
-              <div className="divide-y divide-border border-y border-border">
-                {myReferrals.map((app) => {
-                  const c = app.candidate;
-                  const job = app.job;
-                  return (
-                    <div key={c.id} className="flex flex-col gap-3 py-5 sm:flex-row sm:items-center sm:justify-between">
-                      {/* Candidate info */}
-                      <div className="flex items-center gap-3 min-w-0">
-                        <Avatar name={`${c.firstName} ${c.lastName}`} seed={c.email} size={36} />
-                        <div className="min-w-0">
-                          <div className="truncate text-[13px] font-medium text-foreground">{c.firstName} {c.lastName}</div>
-                          <div className="mt-0.5 truncate text-[12px] text-muted-foreground">{c.email}</div>
-                        </div>
-                      </div>
-
-                      {/* Meta */}
-                      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-[12.5px] text-muted-foreground sm:ml-auto sm:mr-6">
-                        <span className="flex items-center gap-1.5">
-                          <Briefcase className="h-3.5 w-3.5 shrink-0" />
-                          {job?.title || app.jobId}
                         </span>
-                        <span className="flex items-center gap-1.5">
-                          <Clock className="h-3.5 w-3.5 shrink-0" />
-                          {new Date(app.appliedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                        <span className="hidden shrink-0 items-center gap-1 text-[12.5px] font-medium text-primary sm:inline-flex">
+                          Refer <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
                         </span>
                       </div>
-
-                      {/* Stage */}
-                      <div className="shrink-0">
-                        <StageBadge stage={app.currentStage as any} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              
-              {totalPages > 1 ? (
-                <div className="mt-4 flex items-center justify-between border-t border-border pt-4 text-[12px] text-muted-foreground">
-                  <div>Page {page} of {totalPages} {pagination?.total ? `(${pagination.total} total)` : ""}</div>
-                  <div className="flex gap-1">
-                    <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="h-7 rounded-md border border-border bg-surface px-2.5 text-[12px] hover:bg-secondary disabled:opacity-40">Previous</button>
-                    <button disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} className="h-7 rounded-md border border-border bg-surface px-2.5 text-[12px] hover:bg-secondary disabled:opacity-40">Next</button>
-                  </div>
-                </div>
-              ) : null}
-              </div>
-            ) : (
-              <div className="mt-10 grid place-items-center rounded-xl border border-dashed border-border p-10 text-center">
-                <div className="text-[13px] font-medium">No referrals yet</div>
-                <div className="mt-1 text-[12px] text-muted-foreground">
-                  Refer someone from your network to get started.{" "}
-                  <Link href="/referrals/new" className="text-foreground underline">Add a referral</Link>
-                </div>
-              </div>
-            )}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-          </TabsContent>
-        </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="mine" className="mt-0">
+          <div className="space-y-4 px-4 py-5 md:px-8">
+            <div className="surface-card overflow-hidden">
+              <div className="hidden grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_120px_140px] gap-4 border-b border-border bg-surface-2/60 px-4 py-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground md:grid">
+                <div>Candidate</div>
+                <div>Role</div>
+                <div>Referred</div>
+                <div className="text-right">Stage</div>
+              </div>
+              {candidatesLoading ? (
+                <Skeleton.Row count={3} />
+              ) : myReferrals.length === 0 ? (
+                <EmptyState
+                  icon={Users}
+                  title="No referrals yet"
+                  body="Know someone who'd be great here? Refer them and you can follow their progress on this tab."
+                  action={
+                    <Button asChild size="sm">
+                      <Link href="/referrals/new">
+                        <UserPlus /> Refer someone
+                      </Link>
+                    </Button>
+                  }
+                />
+              ) : (
+                <ul className="divide-y divide-border">
+                  {myReferrals.map((app) => {
+                    const c = app.candidate;
+                    const job = app.job;
+                    return (
+                      <li
+                        key={app.id ?? `${c.id}-${app.jobId}`}
+                        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 px-4 py-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_120px_140px]"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <Avatar name={`${c.firstName} ${c.lastName}`} seed={c.email} size={32} />
+                          <div className="min-w-0">
+                            <div className="truncate text-[13.5px] font-medium">
+                              {c.firstName} {c.lastName}
+                            </div>
+                            <div className="truncate text-[12px] text-muted-foreground">{c.email}</div>
+                          </div>
+                        </div>
+                        <div className="order-last col-span-2 truncate text-[12.5px] text-muted-foreground md:order-none md:col-span-1">
+                          {job?.title ?? "–"}
+                        </div>
+                        <div className="hidden text-[12.5px] text-muted-foreground md:block">
+                          {new Date(app.appliedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                        </div>
+                        <div className="justify-self-end">
+                          <StageBadge stage={app.currentStage as any} />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between border-t border-border bg-surface-2/40 px-4 py-2.5 text-[12px] text-muted-foreground">
+                  <span className="tabular-nums">
+                    Page {page} of {totalPages}
+                  </span>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon-sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)} aria-label="Previous page">
+                      <ChevronLeft />
+                    </Button>
+                    <Button variant="ghost" size="icon-sm" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)} aria-label="Next page">
+                      <ChevronRight />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   );

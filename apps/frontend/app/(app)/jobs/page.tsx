@@ -3,14 +3,13 @@
 import Link from "next/link";
 import { Guard } from "@/components/access-restricted";
 import { PageHeader } from "@/components/app-shell";
-import { candidatesForJob } from "@/lib/mock-data";
 import { useAppStore } from "@/store/app.store";
 import { useJobs, useDeleteJob } from "@/hooks/useJobs";
 import type { Job } from "@/services/api/jobs.service";
-import { Plus, Search } from "lucide-react";
+import { Briefcase, Plus } from "lucide-react";
 import { Filters, single, useResolvedFilters, type FilterValues } from "@/components/filters";
 import { JOB_FILTERS } from "@/constants/filters.config";
-import { Input } from "@/components/ui/input";
+import { ListToolbar, SearchField } from "@/components/list-toolbar";
 import { useMemo, useState, useEffect } from "react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -75,45 +74,60 @@ function JobsInner() {
         }
       />
 
-      <div className="w-full">
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <div className="relative min-w-[220px] flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input type="search" value={ui.q} onChange={(e) => setUi(p => ({ ...p, q: e.target.value }))} placeholder="Search jobs, departments…" aria-label="Search jobs" className="pl-9" />
-          </div>
-          <Filters config={JOB_FILTERS} data={filterData} value={filters} onChange={(v) => setUi(p => ({ ...p, filters: v }))} />
-        </div>
-        <div className="mt-2 flex flex-col">
+      <div className="space-y-4 px-4 py-5 md:px-8">
+        <ListToolbar
+          search={<SearchField value={ui.q} onChange={(v) => setUi((p) => ({ ...p, q: v }))} placeholder="Search jobs or departments" label="Search jobs" />}
+          summary={isLoading ? null : `${jobs.length} ${jobs.length === 1 ? "job" : "jobs"}`}
+        >
+          <Filters config={JOB_FILTERS} data={filterData} value={filters} onChange={(v) => setUi((p) => ({ ...p, filters: v }))} />
+        </ListToolbar>
+
+        <div className="surface-card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-[13px]">
-              <thead className="border-y border-border bg-secondary/50 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <thead className="border-b border-border bg-surface-2/60 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
                 <tr>
-                  <th className="px-5 py-3 font-semibold">Job Name</th>
-                  {role === Role.ADMINISTRATOR && <th className="px-5 py-3 font-semibold hidden sm:table-cell">Department</th>}
-                  <th className="px-5 py-3 font-semibold hidden md:table-cell">Posted By</th>
-                  <th className="px-5 py-3 font-semibold hidden lg:table-cell">Openings</th>
-                  <th className="px-5 py-3 font-semibold text-right">Posted On</th>
-                  <th className="px-5 py-3 w-10"></th>
+                  <th scope="col" className="px-4 py-2.5 font-medium">Job</th>
+                  {role === Role.ADMINISTRATOR && <th scope="col" className="hidden px-4 py-2.5 font-medium sm:table-cell">Department</th>}
+                  <th scope="col" className="hidden px-4 py-2.5 font-medium md:table-cell">Posted by</th>
+                  <th scope="col" className="hidden px-4 py-2.5 text-right font-medium lg:table-cell">Openings</th>
+                  <th scope="col" className="hidden px-4 py-2.5 text-right font-medium lg:table-cell">Applicants</th>
+                  <th scope="col" className="px-4 py-2.5 text-right font-medium">Posted</th>
+                  <th scope="col" className="w-12 px-2 py-2.5"><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {isLoading && <Skeleton.Table count={5} role={role} />}
                 {!isLoading && jobs.map((j: Job) => (
-                  <JobTableRow key={j.id} job={j} role={role} onDelete={(val) => setUi(p => ({ ...p, deleteJob: val as any }))} />
+                  <JobTableRow key={j.id} job={j} role={role} onDelete={(val) => setUi((p) => ({ ...p, deleteJob: val }))} />
                 ))}
               </tbody>
             </table>
           </div>
+          {!isLoading && jobs.length === 0 && (
+            <div className="flex flex-col items-center gap-2 px-6 py-12 text-center">
+              <span className="grid size-10 place-items-center rounded-full bg-secondary text-muted-foreground">
+                <Briefcase className="size-5" aria-hidden="true" />
+              </span>
+              <p className="text-[13.5px] font-medium">{ui.q || Object.values(filters).some((v) => v?.length) ? "No jobs match your search" : "No jobs yet"}</p>
+              <p className="text-[12.5px] text-muted-foreground">
+                {ui.q || Object.values(filters).some((v) => v?.length) ? "Try a different keyword or clear the filters." : "Create a job to start receiving applications."}
+              </p>
+              {!ui.q && !Object.values(filters).some((v) => v?.length) && [Role.ADMINISTRATOR, Role.HIRING_MANAGER].includes(role) && (
+                <Link href="/jobs/new" className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-[12.5px] font-medium text-primary-foreground hover:bg-primary-hover">
+                  <Plus className="size-3.5" /> New job
+                </Link>
+              )}
+            </div>
+          )}
         </div>
       </div>
-
-
 
       <AlertDialog open={!!ui.deleteJob} onOpenChange={(o) => !o && setUi(p => ({ ...p, deleteJob: null }))}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete &quot;{ui.deleteJob?.title}&quot;?</AlertDialogTitle>
-            <AlertDialogDescription>This will permanently remove the job and detach all {ui.deleteJob ? candidatesForJob(ui.deleteJob.id).length : 0} candidates from it. This cannot be undone.</AlertDialogDescription>
+            <AlertDialogDescription>This permanently removes the job and its {ui.deleteJob?._count?.applications ?? 0} {ui.deleteJob?._count?.applications === 1 ? "application" : "applications"}. This can&apos;t be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>

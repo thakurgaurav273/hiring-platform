@@ -39,6 +39,11 @@ export interface PaginatedUsers {
 }
 
 export const usersService = {
+  /** Full profile of the signed-in user (the login response only has the basics). */
+  getMe: async (): Promise<UserProfile> => {
+    const response = await api.get<{ data: UserProfile }>("/users/me");
+    return response.data.data;
+  },
   updateProfile: async (data: UpdateProfilePayload): Promise<UserProfile> => {
     const response = await api.patch<UpdateProfileResponse>("/users/me", data);
     return response.data.data;

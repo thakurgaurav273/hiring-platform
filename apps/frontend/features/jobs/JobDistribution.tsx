@@ -87,7 +87,7 @@ export function JobDistribution({ jobId, canManage }: { jobId: string; canManage
           toast.success(
             `${action === "publish" ? "Published on" : action === "pause" ? "Paused on" : "Removed from"} ${d.label.toLowerCase()}`
           ),
-        onError: (e: any) => toast.errorerrorMessage(e, "Couldn't update this destination"),
+        onError: (e: any) => toast.error(errorMessage(e, "Couldn't update this destination")),
         onSettled: () => setBusy(null),
       }
     );

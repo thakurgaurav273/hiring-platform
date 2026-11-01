@@ -76,7 +76,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Topbar */}
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/85 px-4 backdrop-blur md:px-6">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/85 px-4 backdrop-blur md:px-8">
           <button
             onClick={() => setMobileOpen(true)}
             className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground lg:hidden"
@@ -133,18 +133,18 @@ export function Avatar({ name, seed, size = 32, url }: { name: string; seed?: st
 }
 
 // Reusable page header for content pages
-export function PageHeader({ title, description, actions, breadcrumbs, backButton, tabs }: { title: ReactNode; description?: ReactNode; actions?: ReactNode; breadcrumbs?: { label: string; to?: string }[]; backButton?: ReactNode; tabs?: ReactNode }) {
+export function PageHeader({ title, description, actions, breadcrumbs: _breadcrumbs, backButton, tabs }: { title: ReactNode; description?: ReactNode; actions?: ReactNode; breadcrumbs?: { label: string; to?: string }[]; backButton?: ReactNode; tabs?: ReactNode }) {
   return (
-    <div className={`border-b border-border bg-background px-4 pt-6 md:px-8 ${tabs ? "pb-0" : "pb-6"}`}>
-      {backButton && <div className="mb-5">{backButton}</div>}
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4 sm:flex sm:items-center sm:justify-between">
+    <div className={`border-b border-border bg-background px-4 pt-5 md:px-8 ${tabs ? "pb-0" : "pb-5"}`}>
+      {backButton && <div className="mb-3">{backButton}</div>}
+      <div className="flex min-w-0 items-center justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="font-display text-[24px] font-semibold leading-tight tracking-tight">{title}</h1>
-          {description && <p className="mt-1.5 text-[13.5px] text-muted-foreground">{description}</p>}
+          <h1 className="truncate font-display text-[20px] font-semibold leading-tight tracking-tight">{title}</h1>
+          {description && <p className="mt-0.5 text-[13px] text-muted-foreground sm:truncate">{description}</p>}
         </div>
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </div>
-      {tabs && <div className="mt-4">{tabs}</div>}
+      {tabs && <div className="mt-3">{tabs}</div>}
     </div>
   );
 }

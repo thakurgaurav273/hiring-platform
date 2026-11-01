@@ -1,6 +1,70 @@
 import { prisma } from "../../database/prisma-client";
 import { Prisma } from "@prisma/client";
 
+// ─── Thread DTO helpers ───────────────────────────────────────────────────────
+
+type ThreadWithMessages = Prisma.EmailThreadGetPayload<{
+    include: { messages: { include: { fromUser: { select: { email: true; firstName: true; lastName: true } } } } };
+}>;
+type ThreadCandidate = { id: string; firstName: string; lastName: string; email: string };
+
+/** Plain-text preview: emails may be HTML (templates, forwards). */
+const toPreview = (body: string | undefined) =>
+    (body ?? "")
+        .replace(/<(style|script)[\s\S]*?<\/\1>/gi, " ")
+        .replace(/<br\s*\/?>(?!\n)/gi, " ")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/\s+/g, " ")
+        .trim()
+        .substring(0, 140);
+
+/** Candidates for a set of threads (EmailThread has no relation to Candidate). */
+const candidatesFor = async (threads: { candidateId: string | null }[]) => {
+    const ids = [...new Set(threads.map((t) => t.candidateId).filter((id): id is string => !!id))];
+    if (!ids.length) return new Map<string, ThreadCandidate>();
+    const rows = await prisma.candidate.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, firstName: true, lastName: true, email: true },
+    });
+    return new Map(rows.map((c) => [c.id, c]));
+};
+
+const toThreadDTO = (
+    t: ThreadWithMessages,
+    candidate: ThreadCandidate | undefined,
+    state?: { isUnread: boolean; isStarred: boolean; isArchived: boolean }
+) => {
+    const lastMsg = t.messages[t.messages.length - 1];
+    const candidateName = candidate ? `${candidate.firstName} ${candidate.lastName}`.trim() : undefined;
+    return {
+        id: t.id,
+        candidateId: t.candidateId,
+        candidate: candidate ? { id: candidate.id, name: candidateName!, email: candidate.email } : null,
+        subject: t.subject,
+        preview: toPreview(lastMsg?.body),
+        lastMessageAt: (lastMsg?.createdAt ?? t.updatedAt).toISOString(),
+        ...(state ? { unread: state.isUnread, starred: state.isStarred, archived: state.isArchived } : {}),
+        messages: t.messages.map((m) => {
+            // Inbound mail has no sending user; it comes from the thread's candidate.
+            const inbound = m.direction === "INBOUND" && !m.fromUser;
+            return {
+                id: m.id,
+                direction: m.direction,
+                from: m.fromUser ? m.fromUser.email : inbound ? candidate?.email ?? "" : m.fromUserId || "",
+                fromName: m.fromUser ? `${m.fromUser.firstName} ${m.fromUser.lastName}`.trim() : inbound ? candidateName : undefined,
+                to: m.to,
+                at: m.createdAt.toISOString(),
+                body: m.body,
+                attachments: m.attachments,
+            };
+        }),
+    };
+};
+
 const getUserThreads = async (userId: string, folder: string) => {
     // folder: "inbox" | "sent" | "archive" | "starred"
     let whereClause: Prisma.UserEmailThreadWhereInput = { userId };
@@ -46,28 +110,8 @@ const getUserThreads = async (userId: string, folder: string) => {
         orderBy: { updatedAt: "desc" }
     });
 
-    return userThreads.map(ut => {
-        const t = ut.thread;
-        const lastMsg = t.messages[t.messages.length - 1];
-        return {
-            id: t.id,
-            candidateId: t.candidateId,
-            subject: t.subject,
-            preview: lastMsg?.body?.substring(0, 100) || "",
-            unread: ut.isUnread,
-            starred: ut.isStarred,
-            archived: ut.isArchived,
-            messages: t.messages.map(m => ({
-                id: m.id,
-                from: m.fromUser ? m.fromUser.email : (m.fromUserId || ""),
-                fromName: m.fromUser ? `${m.fromUser.firstName} ${m.fromUser.lastName}`.trim() : undefined,
-                to: m.to,
-                at: m.createdAt.toISOString(),
-                body: m.body,
-                attachments: m.attachments,
-            }))
-        };
-    });
+    const candidates = await candidatesFor(userThreads.map((ut) => ut.thread));
+    return userThreads.map((ut) => toThreadDTO(ut.thread, ut.thread.candidateId ? candidates.get(ut.thread.candidateId) : undefined, ut));
 };
 
 const getThreadById = async (userId: string, threadId: string) => {
@@ -86,27 +130,8 @@ const getThreadById = async (userId: string, threadId: string) => {
     });
 
     if (!ut) return null;
-
-    const t = ut.thread;
-    const lastMsg = t.messages[t.messages.length - 1];
-    return {
-        id: t.id,
-        candidateId: t.candidateId,
-        subject: t.subject,
-        preview: lastMsg?.body?.substring(0, 100) || "",
-        unread: ut.isUnread,
-        starred: ut.isStarred,
-        archived: ut.isArchived,
-        messages: t.messages.map(m => ({
-            id: m.id,
-            from: m.fromUser ? m.fromUser.email : (m.fromUserId || ""),
-            fromName: m.fromUser ? `${m.fromUser.firstName} ${m.fromUser.lastName}`.trim() : undefined,
-            to: m.to,
-            at: m.createdAt.toISOString(),
-            body: m.body,
-            attachments: m.attachments,
-        }))
-    };
+    const candidates = await candidatesFor([ut.thread]);
+    return toThreadDTO(ut.thread, ut.thread.candidateId ? candidates.get(ut.thread.candidateId) : undefined, ut);
 };
 
 const updateThreadState = async (userId: string, threadId: string, data: { isUnread?: boolean, isStarred?: boolean, isArchived?: boolean }) => {
@@ -191,24 +216,8 @@ const getCandidateThreads = async (candidateId: string) => {
         orderBy: { updatedAt: "desc" }
     });
 
-    return threads.map(t => {
-        const lastMsg = t.messages[t.messages.length - 1];
-        return {
-            id: t.id,
-            candidateId: t.candidateId,
-            subject: t.subject,
-            preview: lastMsg?.body?.substring(0, 100) || "",
-            messages: t.messages.map(m => ({
-                id: m.id,
-                from: m.fromUser ? m.fromUser.email : (m.fromUserId || ""),
-                fromName: m.fromUser ? `${m.fromUser.firstName} ${m.fromUser.lastName}`.trim() : undefined,
-                to: m.to,
-                at: m.createdAt.toISOString(),
-                body: m.body,
-                attachments: m.attachments,
-            }))
-        };
-    });
+    const candidates = await candidatesFor(threads);
+    return threads.map((t) => toThreadDTO(t, t.candidateId ? candidates.get(t.candidateId) : undefined));
 };
 
 const emailRepository = {
